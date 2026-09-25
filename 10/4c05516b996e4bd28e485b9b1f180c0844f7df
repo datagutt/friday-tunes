@@ -1,0 +1,18 @@
+LICENSE
+  h_99821c4ddfca12 1-21
+README.md
+  h_99821c4ddfca12 82-85
+package.json
+  h_99821c4ddfca12 25-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "104c05516b996e4bd28e485b9b1f180c0844f7df",
+  "prompts": {},
+  "humans": {
+    "h_99821c4ddfca12": {
+      "author": "Thomas Lekanger <thomas.lekanger@hotmail.com>"
+    }
+  }
+}
