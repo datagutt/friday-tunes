@@ -1,0 +1,49 @@
+src/search/search.ts
+  s_bc94914fdfc7b0::t_77f5c672a11733 1-114,116-117,119-167
+  s_bc94914fdfc7b0::t_4003e356702317 115,118
+  s_bc94914fdfc7b0::t_23b29ac6c29218 168-174
+src/spotify/auth.ts
+  s_bc94914fdfc7b0::t_5ad1a1108d7336 1-166
+  s_bc94914fdfc7b0::t_6efffc1d344a6f 167-176
+src/cli.ts
+  s_bc94914fdfc7b0::t_2b4ef5732760c9 1-86
+  s_bc94914fdfc7b0::t_f10acd6176b835 87-92
+src/search/stats.ts
+  s_bc94914fdfc7b0::t_eb51ede49bc30f 1-46
+  s_bc94914fdfc7b0::t_a71b77a6a55f74 47-48
+test/search.test.ts
+  s_bc94914fdfc7b0::t_9486c81dd82aef 1-112
+src/spotify/schema.ts
+  s_bc94914fdfc7b0::t_62b4ccde0a4bb8 1-102
+src/spotify/client.ts
+  s_bc94914fdfc7b0::t_3bc71de7162b70 1-111
+  s_bc94914fdfc7b0::t_08a26255556fe1 112-116
+src/http.ts
+  s_bc94914fdfc7b0::t_fc2f6f3e5008e8 1-132
+  s_bc94914fdfc7b0::t_f389eeca79aab6 133-134
+src/search/fts.ts
+  s_bc94914fdfc7b0::t_c9214805e1fed0 1-26
+src/sync.ts
+  s_bc94914fdfc7b0::t_485d0124cec2b0 1-52
+src/spotify/sync.ts
+  s_bc94914fdfc7b0::t_e331fd6f638f5a 103-141
+  s_bc94914fdfc7b0::t_28a6cd3f5fbb17 149
+  s_bc94914fdfc7b0::t_e71bfedbc6d213 2-102,142-148,150-283
+  s_bc94914fdfc7b0::t_aa620452540fa6 1,284-286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4be3cc395df65504b6a481c1ebd91c4c4cafd1f8",
+  "prompts": {},
+  "sessions": {
+    "s_bc94914fdfc7b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8019d45-f939-4ba3-aec4-2039fedaa321",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <thomas.lekanger@hotmail.com>"
+    }
+  }
+}
