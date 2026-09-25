@@ -79,3 +79,7 @@ bun test
 bun run typecheck
 bun run lint
 ```
+
+## License
+
+MIT. See `LICENSE`.

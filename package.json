@@ -22,5 +22,6 @@
   },
   "bin": {
     "ft": "./bin/ft"
-  }
+  },
+  "license": "MIT"
 }
