@@ -4,6 +4,7 @@ import { getState, setState } from './db/library';
 import { LastFm } from './lastfm/client';
 import { syncScrobbles, syncTags, syncTopArtists } from './lastfm/sync';
 import { syncLock } from './lock';
+import { syncLyrics } from './lyrics/sync';
 import { rebuildFts } from './search/fts';
 import { syncCatalogs, syncFollowed } from './spotify/catalog';
 import { Spotify } from './spotify/client';
@@ -43,6 +44,10 @@ const STEP_DEFS = {
   tags: {
     quick: false,
     run: (_full: boolean) => syncTags.pipe(Effect.provide(LastFm.Default)),
+  },
+  lyrics: {
+    quick: false,
+    run: (_full: boolean) => Effect.scoped(syncLyrics),
   },
 } satisfies Record<string, StepDef>;
 
