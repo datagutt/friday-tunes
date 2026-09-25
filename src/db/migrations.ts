@@ -128,4 +128,17 @@ export const migrations: ReadonlyArray<string> = [
     value text not null
   );
   `,
+  `
+  -- Spotify discographies fill in slowly, album by album, so progress is
+  -- kept per album and an artist is done once every album is fetched.
+  create table spotify_albums (
+    spotify_id text primary key,
+    artist_id integer not null references artists(id) on delete cascade,
+    name text not null,
+    release_date text,
+    tracks_synced_at integer
+  );
+  create index spotify_albums_pending on spotify_albums(artist_id, tracks_synced_at);
+  alter table artists add column spotify_albums_at integer;
+  `,
 ];

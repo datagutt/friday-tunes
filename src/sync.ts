@@ -2,14 +2,21 @@ import { Data, Effect, Either } from 'effect';
 import { Db } from './db/db';
 import { getState, setState } from './db/library';
 import { syncEmbeddings } from './embed/sync';
+import { syncCatalogs } from './lastfm/catalog';
 import { LastFm } from './lastfm/client';
 import { syncScrobbles, syncTags, syncTopArtists } from './lastfm/sync';
 import { syncLock } from './lock';
 import { syncLyrics } from './lyrics/sync';
 import { rebuildFts } from './search/fts';
-import { syncCatalogs, syncFollowed } from './spotify/catalog';
 import { Spotify } from './spotify/client';
-import { syncLiked, syncPlaylists, syncRecent, syncTop } from './spotify/sync';
+import { syncDiscographies } from './spotify/discography';
+import {
+  syncFollowed,
+  syncLiked,
+  syncPlaylists,
+  syncRecent,
+  syncTop,
+} from './spotify/sync';
 
 interface StepDef {
   readonly quick: boolean;
@@ -37,10 +44,23 @@ const STEP_DEFS = {
   },
   catalog: {
     quick: false,
+    // The followed list comes from Spotify but only refines which artists
+    // get a catalog, so a Spotify outage must not stop the Last.fm part.
     run: (_full: boolean) =>
-      Effect.all([syncFollowed, syncCatalogs], { discard: true }).pipe(
+      syncFollowed.pipe(
         Effect.provide(Spotify.Default),
+        Effect.catchAll((e) =>
+          Effect.logWarning(
+            `followed artists skipped, using the stored list: ${e.message}`,
+          ),
+        ),
+        Effect.zipRight(syncCatalogs.pipe(Effect.provide(LastFm.Default))),
       ),
+  },
+  discography: {
+    quick: false,
+    run: (_full: boolean) =>
+      syncDiscographies.pipe(Effect.provide(Spotify.Default)),
   },
   tags: {
     quick: false,

@@ -39,6 +39,7 @@ export interface Row {
   readonly album: string | null;
   readonly year: number | null;
   readonly spotify_id: string | null;
+  readonly spotify_url: string | null;
   readonly plays: number;
   readonly sources: ReadonlyArray<string>;
   readonly tags: ReadonlyArray<string>;
@@ -56,8 +57,9 @@ const sourceFilter: Record<SourceFilter, string> = {
     "exists (select 1 from track_sources s where s.track_id = t.id and s.source = 'liked')",
   library: `exists (select 1 from track_sources s where s.track_id = t.id and s.source in ${LIBRARY_SOURCES})`,
   scrobbled: 'exists (select 1 from scrobbles sc where sc.track_id = t.id)',
+  // Last.fm top tracks and Spotify discographies of followed and top artists.
   catalog:
-    "exists (select 1 from track_sources s where s.track_id = t.id and s.source = 'catalog')",
+    "exists (select 1 from track_sources s where s.track_id = t.id and s.source in ('catalog', 'discography'))",
 };
 
 const FTS_COLUMN: Partial<Record<Mode, string>> = {
@@ -102,7 +104,7 @@ const ROW_COLUMNS = `
     order by weight desc limit 5)) as tags,
   exists (select 1 from track_sources s where s.track_id = t.id and s.source in ${LIBRARY_SOURCES}) as in_library`;
 
-interface RawRow extends Omit<Row, 'sources' | 'tags'> {
+interface RawRow extends Omit<Row, 'sources' | 'tags' | 'spotify_url'> {
   sources: string | null;
   tags: string | null;
   in_library: number;
@@ -117,6 +119,9 @@ const toRow = ({
 }: RawRow): Row => ({
   ...rest,
   artists: rest.artists ?? '',
+  spotify_url: rest.spotify_id
+    ? `https://open.spotify.com/track/${rest.spotify_id}`
+    : null,
   sources: sources ? sources.split(',') : [],
   tags: tags ? tags.split(', ') : [],
   ...(match ? { match } : {}),

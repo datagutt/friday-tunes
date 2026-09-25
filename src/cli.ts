@@ -1,8 +1,9 @@
 import { Args, Command, Options } from '@effect/cli';
 import { BunContext, BunRuntime } from '@effect/platform-bun';
-import { Console, Effect, Layer, Logger } from 'effect';
+import { type ConfigError, Console, Effect, Layer, Logger } from 'effect';
 import { Db, DbLive } from './db/db';
 import { embed } from './embed/ollama';
+import { install, runNow, uninstall } from './schedule';
 import { formatRow, MODES, SOURCE_FILTERS, search } from './search/search';
 import { stats } from './search/stats';
 import { authorize } from './spotify/auth';
@@ -28,7 +29,19 @@ const sync = Command.make(
       Options.withDescription('Run only these steps. Repeat for several.'),
     ),
   },
-  ({ full, steps }) => runSync({ full, steps }),
+  ({ full, steps }) =>
+    runSync({ full, steps }).pipe(
+      // Each failed step is already logged with its reason.
+      Effect.catchTag('SyncFailed', (e) =>
+        Console.error(e.message).pipe(
+          Effect.zipRight(
+            Effect.sync(() => {
+              process.exitCode = 1;
+            }),
+          ),
+        ),
+      ),
+    ),
 ).pipe(Command.withDescription('Update the local index.'));
 
 const searchCommand = Command.make(
@@ -127,6 +140,27 @@ const playlist = Command.make('playlist').pipe(
   Command.withSubcommands([playlistCreate]),
 );
 
+const scheduleCommand = (
+  name: string,
+  description: string,
+  effect: Effect.Effect<string, Error | ConfigError.ConfigError>,
+) =>
+  Command.make(name, {}, () => Effect.flatMap(effect, Console.log)).pipe(
+    Command.withDescription(description),
+  );
+
+const schedule = Command.make('schedule').pipe(
+  Command.withSubcommands([
+    scheduleCommand(
+      'install',
+      'Install the launchd jobs: full sync Fridays 13:00, discography trickle hourly.',
+      install,
+    ),
+    scheduleCommand('uninstall', 'Remove the launchd jobs.', uninstall),
+    scheduleCommand('run', 'Start the weekly full sync now.', runNow),
+  ]),
+);
+
 const root = Command.make('ft').pipe(
   Command.withSubcommands([
     auth,
@@ -135,6 +169,7 @@ const root = Command.make('ft').pipe(
     statsCommand,
     resolve,
     playlist,
+    schedule,
   ]),
 );
 

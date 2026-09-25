@@ -5,6 +5,7 @@ import path from 'node:path';
 import { Effect, Layer } from 'effect';
 import { Db, DbMemory } from '../src/db/db';
 import { Spotify } from '../src/spotify/client';
+import { syncDiscographies } from '../src/spotify/discography';
 import { syncPlaylists } from '../src/spotify/sync';
 import { runWithClock, scriptFetch, testConfig } from './helpers';
 
@@ -23,7 +24,8 @@ const config = testConfig({
   SPOTIFY_CLIENT_ID: 'id',
   SPOTIFY_CLIENT_SECRET: 'secret',
 });
-const layer = Layer.merge(DbMemory, Spotify.Default).pipe(
+const layer = Spotify.Default.pipe(
+  Layer.provideMerge(DbMemory),
   Layer.provide(config),
 );
 
@@ -91,4 +93,75 @@ test('re-reads short playlist pages one by one and waits out 429', async () => {
     { spotify_id: 'p0', status: 'ok', tracks: 1 },
     { spotify_id: 'p2', status: 'not_owned', tracks: 0 },
   ]);
+});
+
+test('discography lists albums, then fetches their tracks, keeping progress', async () => {
+  const albumTrack = (id: string, artistId: string) => ({
+    id,
+    name: `Song ${id}`,
+    duration_ms: 1000,
+    artists: [
+      { id: artistId, name: artistId === 'aurora' ? 'AURORA' : 'Other' },
+    ],
+  });
+  const http = scriptFetch([
+    {
+      url: 'artists/aurora/albums?include_groups=album%2Csingle&limit=10&offset=0',
+      json: {
+        items: [
+          { id: 'al1', name: 'Album', release_date: '2016-03-11' },
+          { id: 'al2', name: 'Split Single', release_date: '2020-01-01' },
+        ],
+        next: null,
+      },
+    },
+    {
+      url: 'albums/al2/tracks',
+      json: {
+        items: [albumTrack('s1', 'aurora'), albumTrack('s2', 'other')],
+        next: null,
+      },
+    },
+    {
+      url: 'albums/al1/tracks',
+      json: { items: [albumTrack('a1', 'aurora')], next: null },
+    },
+  ]);
+
+  const result = await runWithClock(
+    Effect.gen(function* () {
+      const db = yield* Db;
+      db.query(
+        "insert into artists (spotify_id, name, name_norm, followed) values ('aurora', 'AURORA', 'aurora', 1)",
+      ).run();
+      yield* syncDiscographies;
+      return {
+        tracks: db
+          .query(
+            "select t.title, t.album, t.release_year from track_sources s join tracks t on t.id = s.track_id where s.source = 'discography' order by t.title",
+          )
+          .all(),
+        pending: db
+          .query(
+            'select count(*) as n from spotify_albums where tracks_synced_at is null',
+          )
+          .get(),
+        listed: db
+          .query(
+            "select spotify_albums_at is not null as done from artists where spotify_id = 'aurora'",
+          )
+          .get(),
+      };
+    }).pipe(Effect.provide(layer)),
+  );
+
+  http.done();
+  expect(result).toEqual({
+    tracks: [
+      { title: 'Song a1', album: 'Album', release_year: 2016 },
+      { title: 'Song s1', album: 'Split Single', release_year: 2020 },
+    ],
+    pending: { n: 0 },
+    listed: { done: 1 },
+  });
 });

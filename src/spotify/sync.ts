@@ -13,6 +13,7 @@ import { HttpError } from '../http';
 import { Spotify } from './client';
 import {
   ArtistRef,
+  FollowedArtists,
   Me,
   Paging,
   Playlist,
@@ -283,4 +284,30 @@ export const syncRecent = Effect.gen(function* () {
     }
   })();
   yield* Effect.logInfo(`recently played: ${recent.items.length} plays`);
+});
+
+// Followed artists decide whose Last.fm top tracks the catalog step indexes.
+export const syncFollowed = Effect.gen(function* () {
+  const spotify = yield* Spotify;
+  const db = yield* Db;
+  const artists: Array<{ id: string; name: string }> = [];
+  let url: string | null = 'me/following?type=artist&limit=50';
+  while (url) {
+    const page: typeof FollowedArtists.Type = yield* spotify.get(
+      FollowedArtists,
+      url,
+    );
+    for (const a of page.artists.items) {
+      if (a.id) artists.push({ id: a.id, name: a.name });
+    }
+    url = page.artists.next;
+  }
+  db.transaction(() => {
+    db.run('update artists set followed = 0');
+    const follow = db.query('update artists set followed = 1 where id = ?');
+    for (const a of artists) {
+      follow.run(upsertArtist(db, { name: a.name, spotifyId: a.id }));
+    }
+  })();
+  yield* Effect.logInfo(`followed artists: ${artists.length}`);
 });

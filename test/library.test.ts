@@ -8,6 +8,7 @@ import {
   setState,
   upsertTrack,
 } from '../src/db/library';
+import { migrations } from '../src/db/migrations';
 
 const SQLITE_LIB = '/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib';
 let db: Database;
@@ -30,7 +31,7 @@ test('migrations create the vector and FTS tables', () => {
   expect(names).toContain('tracks_fts');
   expect(
     db.query<{ user_version: number }, []>('pragma user_version').get(),
-  ).toEqual({ user_version: 1 });
+  ).toEqual({ user_version: migrations.length });
 });
 
 test('a Last.fm track and its later Spotify version share one row', () => {

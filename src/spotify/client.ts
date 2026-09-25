@@ -1,5 +1,6 @@
 import {
   Chunk,
+  Duration,
   Effect,
   Option,
   RateLimiter,
@@ -7,15 +8,18 @@ import {
   Stream,
   SynchronizedRef,
 } from 'effect';
-import { HttpError, requestJson, retryTransient } from '../http';
+import { Db } from '../db/db';
+import { getState, setState } from '../db/library';
+import { HttpError, RateLimited, requestJson, retryTransient } from '../http';
 import { readToken, refreshToken, type Token } from './auth';
 import { Paging } from './schema';
 
 const API = 'https://api.spotify.com/v1/';
 
-// Spotify counts dev-mode calls over a rolling 30 s window and does not
-// publish the budget. This pace stays under it for multi-hour catalog syncs.
-const CALLS_PER_SECOND = 5;
+// Spotify does not publish the dev-mode budget. At 5 calls per second a
+// catalog crawl earned a 22 hour Retry-After, so stay well below that.
+const CALLS_PER_SECOND = 2;
+const BLOCKED_UNTIL = 'spotify.blocked_until';
 
 export interface CallOptions {
   readonly method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -35,6 +39,16 @@ const buildUrl = (pathOrUrl: string, query: CallOptions['query'] = {}) => {
 
 export class Spotify extends Effect.Service<Spotify>()('Spotify', {
   scoped: Effect.gen(function* () {
+    const db = yield* Db;
+    // Calling Spotify during a long block risks extending it, so every run
+    // until the stored time fails at once.
+    const blockedUntil = Number(getState(db, BLOCKED_UNTIL) ?? 0);
+    if (blockedUntil > Date.now()) {
+      return yield* new RateLimited({
+        service: 'spotify',
+        retryAfter: Duration.millis(blockedUntil - Date.now()),
+      });
+    }
     const limiter = yield* RateLimiter.make({
       limit: CALLS_PER_SECOND,
       interval: '1 second',
@@ -78,6 +92,18 @@ export class Spotify extends Effect.Service<Spotify>()('Spotify', {
             (e) => e instanceof HttpError && e.status === 401,
             () => send(url, options, true),
           ),
+        ),
+      ).pipe(
+        Effect.tapError((e) =>
+          e instanceof RateLimited
+            ? Effect.sync(() =>
+                setState(
+                  db,
+                  BLOCKED_UNTIL,
+                  Date.now() + Duration.toMillis(e.retryAfter),
+                ),
+              )
+            : Effect.void,
         ),
       );
     };

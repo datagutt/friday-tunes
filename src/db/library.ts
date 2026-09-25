@@ -1,7 +1,13 @@
 import type { Database } from 'bun:sqlite';
 import { matchKey, normalizeArtist, normalizeTitle } from '../normalize';
 
-export type Source = 'liked' | 'playlist' | 'top' | 'recent' | 'catalog';
+export type Source =
+  | 'liked'
+  | 'playlist'
+  | 'top'
+  | 'recent'
+  | 'catalog'
+  | 'discography';
 
 export interface ArtistInput {
   readonly name: string;

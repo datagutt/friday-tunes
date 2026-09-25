@@ -5,18 +5,25 @@ description: Build a playlist for a music theme (the weekly Friday 15:00 theme a
 
 # friday-tunes
 
-`ft` searches a local SQLite index of the user's Liked Songs, own playlists, Spotify top and recent tracks, and Last.fm scrobbles since 2008. It also holds Last.fm tags, lyrics and embeddings where a sync has fetched them. Pick from this index instead of paging through Spotify with MCP tools: the index is complete and a search takes milliseconds.
+`ft` searches a local SQLite index of the user's music:
+- Liked Songs, own playlists, and Spotify top and recent tracks.
+- Last.fm scrobbles since 2008.
+- The catalogs of followed and top artists: Last.fm top tracks, plus Spotify discographies that fill in over time.
+- Last.fm tags, lyrics and embeddings where a sync has fetched them.
+
+Pick from this index instead of paging through Spotify with MCP tools. The Spotify app is rate limited hard, and a search here takes milliseconds.
 
 ## Commands
 
-Always pass `--json` when you read results. Every row has an `id`: the index's own track ID, which `ft playlist create` takes.
+Always pass `--json` when you read results. Every row has an `id`: the index's own track ID, which `ft playlist create` takes. Rows with a `spotify_url` link straight to Spotify. Rows without one are scrobble or catalog tracks that `ft playlist create` looks up on Spotify.
 
 - `ft search title <words>`: word match in the title. Add `--substring` to match inside words ("love" also finds "lovely").
 - `ft search artist <words>`: word match in any artist name on the track.
 - `ft search album <words>`, `ft search lyrics <words>`, `ft search tag <words>`: the same match on album, lyrics or Last.fm tags (track and artist tags).
-- `ft search year 1996` or `ft search year 1990-1999`: release year.
+- `ft search year 1996` or `ft search year 1990-1999`: release year. Scrobble-only tracks often have no year.
+- `ft search vibe <description>`: semantic search over title, artist, tags and lyrics. Describe the mood in a few words; Norwegian works too.
 - Filters for every mode:
-  - `--source liked|library|scrobbled|catalog|any`: "library" means liked, own playlists and Spotify top tracks.
+  - `--source liked|library|scrobbled|catalog|any`: "library" means liked, own playlists and Spotify top tracks. "catalog" means songs by followed and top artists that the user may not have heard.
   - `--min-plays N`: at least N Last.fm scrobbles.
   - `--limit N`: default 50.
 - A trailing `*` on a word is a prefix match. Quote it so the shell does not expand it: `ft search title 'witch*'`.

@@ -111,10 +111,16 @@ export const requestJson = (
     ),
   );
 
+// Spotify can answer a burst with a Retry-After of several hours. Waiting
+// that out inside one sync looks like a hang, so a long wait fails the
+// request instead and the next sync resumes.
+const MAX_RATE_LIMIT_WAIT = Duration.minutes(5);
+
 const isTransient = (error: unknown) =>
-  error instanceof RateLimited ||
-  error instanceof NetworkError ||
-  (error instanceof HttpError && error.status >= 500);
+  error instanceof RateLimited
+    ? Duration.lessThanOrEqualTo(error.retryAfter, MAX_RATE_LIMIT_WAIT)
+    : error instanceof NetworkError ||
+      (error instanceof HttpError && error.status >= 500);
 
 // Exponential backoff for flaky errors, but a rate limit always waits at
 // least as long as the server asked for.
@@ -122,13 +128,22 @@ export const retryTransient = <A, E, R>(
   self: Effect.Effect<A, E, R>,
   retries = 6,
 ) =>
-  Effect.retry(self, {
-    while: isTransient,
-    schedule: Schedule.exponential('500 millis').pipe(
-      Schedule.intersect(Schedule.identity<E>()),
-      Schedule.addDelay(([, error]) =>
-        error instanceof RateLimited ? error.retryAfter : Duration.zero,
+  Effect.retry(
+    self.pipe(
+      Effect.tapError((error) =>
+        error instanceof RateLimited
+          ? Effect.logWarning(error.message)
+          : Effect.void,
       ),
-      Schedule.intersect(Schedule.recurs(retries)),
     ),
-  });
+    {
+      while: isTransient,
+      schedule: Schedule.exponential('500 millis').pipe(
+        Schedule.intersect(Schedule.identity<E>()),
+        Schedule.addDelay(([, error]) =>
+          error instanceof RateLimited ? error.retryAfter : Duration.zero,
+        ),
+        Schedule.intersect(Schedule.recurs(retries)),
+      ),
+    },
+  );
