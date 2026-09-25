@@ -1,0 +1,26 @@
+src/search/theme.ts
+  s_bc94914fdfc7b0::t_e90901768e2c62 1-82
+  s_bc94914fdfc7b0::t_173cdccd148c0b 83-96
+skill/SKILL.md
+  s_bc94914fdfc7b0::t_d7b3bc9d33532a 20,47-55
+src/cli.ts
+  s_bc94914fdfc7b0::t_39270705a14d9e 3-10,16,55-76,84,93,107-148,225
+test/search.test.ts
+  s_bc94914fdfc7b0::t_7c9a3978e4963b 7,145-167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b3f778e16773249010ad1a4b6cfb4c42de0fa1a1",
+  "prompts": {},
+  "sessions": {
+    "s_bc94914fdfc7b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8019d45-f939-4ba3-aec4-2039fedaa321",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <thomas.lekanger@hotmail.com>"
+    }
+  }
+}
