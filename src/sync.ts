@@ -3,7 +3,9 @@ import { Db } from './db/db';
 import { getState, setState } from './db/library';
 import { LastFm } from './lastfm/client';
 import { syncScrobbles, syncTags, syncTopArtists } from './lastfm/sync';
+import { syncLock } from './lock';
 import { rebuildFts } from './search/fts';
+import { syncCatalogs, syncFollowed } from './spotify/catalog';
 import { Spotify } from './spotify/client';
 import { syncLiked, syncPlaylists, syncRecent, syncTop } from './spotify/sync';
 
@@ -29,6 +31,13 @@ const STEP_DEFS = {
     run: (_full: boolean) =>
       Effect.all([syncScrobbles, syncTopArtists], { discard: true }).pipe(
         Effect.provide(LastFm.Default),
+      ),
+  },
+  catalog: {
+    quick: false,
+    run: (_full: boolean) =>
+      Effect.all([syncFollowed, syncCatalogs], { discard: true }).pipe(
+        Effect.provide(Spotify.Default),
       ),
   },
   tags: {
@@ -61,6 +70,7 @@ export const runSync = (options: {
   readonly steps: ReadonlyArray<Step>;
 }) =>
   Effect.gen(function* () {
+    yield* syncLock;
     const db = yield* Db;
     const explicit = options.steps.length > 0;
     const steps = explicit
@@ -84,7 +94,7 @@ export const runSync = (options: {
       setState(db, 'sync.quick.at', now());
       if (options.full) setState(db, 'sync.full.at', now());
     }
-  });
+  }).pipe(Effect.scoped);
 
 export const isStale = Effect.map(
   Db,

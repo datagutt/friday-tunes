@@ -168,9 +168,12 @@ const saveTags = (
     ).run(id);
   })();
 
-// Library, catalog and often-scrobbled tracks: the ones a theme can pick.
+// Library and often-scrobbled tracks: the ones a theme is likely to pick.
+// Catalog-only tracks are skipped because there are too many of them for
+// one call each; they still match through their artist's tags.
 export const ENRICH_TRACKS = `
-  exists (select 1 from track_sources s where s.track_id = t.id)
+  exists (select 1 from track_sources s where s.track_id = t.id
+          and s.source in ('liked', 'playlist', 'top', 'recent'))
   or (select count(*) from scrobbles sc where sc.track_id = t.id) >= ${MIN_PLAYS_FOR_ENRICHMENT}`;
 
 export const syncTags = Effect.gen(function* () {
@@ -181,8 +184,9 @@ export const syncTags = Effect.gen(function* () {
     .query<{ id: number; name: string }, [number]>(
       `select a.id, a.name from artists a
        where coalesce(a.tags_fetched_at, 0) < ?
-         and exists (select 1 from track_artists ta join tracks t on t.id = ta.track_id
-                     where ta.artist_id = a.id and (${ENRICH_TRACKS}))`,
+         and (a.followed = 1 or a.lastfm_rank is not null
+           or exists (select 1 from track_artists ta join tracks t on t.id = ta.track_id
+                      where ta.artist_id = a.id and (${ENRICH_TRACKS})))`,
     )
     .all(staleBefore);
   yield* Effect.logInfo(`tags: ${artists.length} artists to fetch`);
