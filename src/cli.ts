@@ -40,6 +40,10 @@ const sync = Command.make(
   ({ full, steps }) =>
     runSync({ full, steps }).pipe(
       // Each failed step is already logged with its reason.
+      // The hourly job often starts while another sync runs; that is a skip.
+      Effect.catchTag('SyncBusy', (e) =>
+        Effect.logInfo(`sync skipped: ${e.message}`),
+      ),
       Effect.catchTag('SyncFailed', (e) =>
         Console.error(e.message).pipe(
           Effect.zipRight(

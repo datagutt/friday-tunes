@@ -46,10 +46,16 @@ export const openDatabase = (file: string, lib: string) => {
   const db = new Database(file, { strict: true });
   db.run('pragma journal_mode = wal');
   db.run('pragma foreign_keys = on');
-  db.run('pragma busy_timeout = 5000');
+  // A sync that meets another process's write waits instead of failing;
+  // an FTS rebuild after a migration can hold the lock for several seconds.
+  db.run('pragma busy_timeout = 30000');
   sqliteVec.load(db);
   // A migration can recreate the FTS table, which holds no data of its own.
-  if (migrate(db) > 0) rebuildFts(db);
+  // The rebuild commits together with the migration, so a failed rebuild
+  // rolls both back and the next open tries again.
+  db.transaction(() => {
+    if (migrate(db) > 0) rebuildFts(db);
+  })();
   return db;
 };
 
