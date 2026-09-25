@@ -1,0 +1,49 @@
+test/genius.test.ts
+  s_bc94914fdfc7b0::t_e0a9bc47d15468 1-94
+  s_bc94914fdfc7b0::t_ca1f3a233d7c97 95-102
+src/genius/client.ts
+  s_bc94914fdfc7b0::t_a4fdb0fa55eec6 1-58
+src/genius/sync.ts
+  s_bc94914fdfc7b0::t_42f1f30083226a 1-145
+  s_bc94914fdfc7b0::t_9818ceacf2adf0 146-150
+README.md
+  s_bc94914fdfc7b0::t_63610b0bc4d5db 10,49,52,62,65
+skill/SKILL.md
+  s_bc94914fdfc7b0::t_f9e2c09f84e666 12,20,24,51
+src/cli.ts
+  s_bc94914fdfc7b0::t_a939189c86e7ac 212
+src/db/db.ts
+  s_bc94914fdfc7b0::t_0935ac1aa6ab63 7,27,32-33,39,51-52
+src/db/migrations.ts
+  s_bc94914fdfc7b0::t_f2d6f731b76e42 144-162
+src/embed/sync.ts
+  s_bc94914fdfc7b0::t_a1f1da3a64b0c6 8,18,23-24,32,57-59
+src/lyrics/genius.ts
+  s_bc94914fdfc7b0::t_1e69b3ac299a55 1-3,71-72,74
+src/schedule.ts
+  s_bc94914fdfc7b0::t_cc837b3e0827dc 32-35,38
+src/search/fts.ts
+  s_bc94914fdfc7b0::t_e797982b13f454 4,9,23-27
+src/search/search.ts
+  s_bc94914fdfc7b0::t_946b90d7544e06 10,74,78-83,169-172
+src/search/theme.ts
+  s_bc94914fdfc7b0::t_15604b1c792384 31-33,62-65
+src/sync.ts
+  s_bc94914fdfc7b0::t_bae4dea19ae36d 5,74-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3c958f6e4e44b95ce0ab064d59291e785e81de40",
+  "prompts": {},
+  "sessions": {
+    "s_bc94914fdfc7b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8019d45-f939-4ba3-aec4-2039fedaa321",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <thomas.lekanger@hotmail.com>"
+    }
+  }
+}
