@@ -9,7 +9,7 @@ description: Build a playlist for a music theme (the weekly Friday 15:00 theme a
 - Liked Songs, own playlists, and Spotify top and recent tracks.
 - Last.fm scrobbles since 2008.
 - The catalogs of followed and top artists: Last.fm top tracks, plus Spotify discographies that fill in over time.
-- Last.fm tags, lyrics and embeddings where a sync has fetched them.
+- Last.fm tags, lyrics, Genius notes (a song's About text and listener annotations) and embeddings, where a sync has fetched them.
 
 Pick from this index instead of paging through Spotify with MCP tools. The Spotify app is rate limited hard, and a search here takes milliseconds.
 
@@ -17,10 +17,11 @@ Pick from this index instead of paging through Spotify with MCP tools. The Spoti
 
 Always pass `--json` when you read results. Every row has an `id`: the index's own track ID, which `ft playlist create` takes. Rows with a `spotify_url` link straight to Spotify. Rows without one are scrobble or catalog tracks that `ft playlist create` looks up on Spotify.
 
-- `ft theme --vibe "<mood>" --word <w> --word <w> --tag <t> --source library --json`: the main tool for open themes. It runs a vibe search, a title and lyrics search per word, and a tag search per tag, then fuses them into one ranked list. Each row lists the searches that found it in `signals`, and `score` rises when several agree. Words accept a trailing `*`.
+- `ft theme --vibe "<mood>" --word <w> --word <w> --tag <t> --source library --json`: the main tool for open themes. It runs a vibe search, a title, lyrics and Genius-notes search per word, and a tag search per tag, then fuses them into one ranked list. Each row lists the searches that found it in `signals`, and `score` rises when several agree. Words accept a trailing `*`.
 - `ft search title <words>`: word match in the title. Add `--substring` to match inside words ("love" also finds "lovely").
 - `ft search artist <words>`: word match in any artist name on the track.
 - `ft search album <words>`, `ft search lyrics <words>`, `ft search tag <words>`: the same match on album, lyrics or Last.fm tags (track and artist tags).
+- `ft search meaning <words>`: match in the Genius About text and annotations. Use it for themes about what a song means or where it comes from ("songs about a real event", "songs written for someone"). The `match` field shows the matching passage.
 - `ft search year 1996` or `ft search year 1990-1999`: release year. Scrobble-only tracks often have no year.
 - `ft search vibe <description>`: semantic search over title, artist, tags and lyrics. Describe the mood in a few words; Norwegian works too.
 - Filters for every mode:
@@ -47,7 +48,7 @@ A search runs a quick sync first when the index is more than 12 hours old. Its p
    2. For vibe themes, run `ft theme` with a mood description and 5 to 10 related words, in English and Norwegian. Add tags only as extra hints.
    3. Treat every signal as a hint, never as proof:
       - Tags are sparse and noisy.
-      - Lyrics cover about half the library.
+      - Lyrics and Genius notes cover only part of the library.
       - Title words are literal ("Must Be Nice" matched "fairy tale" in its lyrics).
       - The vibe search leans toward title words.
       A track that several signals agree on is a strong candidate. A track with one weak signal needs your own judgment.

@@ -2,6 +2,7 @@ import { Data, Effect, Either } from 'effect';
 import { Db } from './db/db';
 import { getState, setState } from './db/library';
 import { syncEmbeddings } from './embed/sync';
+import { syncGenius } from './genius/sync';
 import { syncCatalogs } from './lastfm/catalog';
 import { LastFm } from './lastfm/client';
 import { syncScrobbles, syncTags, syncTopArtists } from './lastfm/sync';
@@ -69,6 +70,10 @@ const STEP_DEFS = {
   lyrics: {
     quick: false,
     run: (_full: boolean) => Effect.scoped(syncLyrics),
+  },
+  genius: {
+    quick: false,
+    run: (_full: boolean) => syncGenius,
   },
   embed: {
     quick: false,

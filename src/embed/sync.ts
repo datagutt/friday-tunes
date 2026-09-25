@@ -5,6 +5,7 @@ import { embed } from './ollama';
 const BATCH = 64;
 // Enough lyrics to carry a song's subject; more mostly slows embedding.
 const LYRICS_CHARS = 1500;
+const MEANING_CHARS = 1500;
 
 interface Source {
   readonly id: number;
@@ -14,11 +15,13 @@ interface Source {
   readonly year: number | null;
   readonly tags: string | null;
   readonly lyrics: string | null;
+  readonly meaning: string | null;
   readonly embed_hash: string | null;
 }
 
 // The embedded text mirrors what a theme can describe: title words, who
-// made it, genre and mood tags, and what the lyrics are about.
+// made it, genre and mood tags, the lyrics, and what Genius says the song
+// is about.
 export const embedText = (s: Source) =>
   [
     `title: ${s.title}`,
@@ -26,6 +29,7 @@ export const embedText = (s: Source) =>
     s.album ? `album: ${s.album}${s.year ? ` (${s.year})` : ''}` : null,
     s.tags ? `tags: ${s.tags}` : null,
     s.lyrics ? `lyrics: ${s.lyrics.slice(0, LYRICS_CHARS)}` : null,
+    s.meaning ? `about: ${s.meaning.slice(0, MEANING_CHARS)}` : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -50,7 +54,9 @@ export const syncEmbeddings = Effect.gen(function* () {
                on g.entity = 'artist' and g.entity_id = ta.artist_id
              where ta.track_id = t.id and ta.position = 0)
            group by tag order by w desc limit 15)) as tags,
-         (select plain from lyrics l where l.track_id = t.id and l.status = 'hit') as lyrics
+         (select plain from lyrics l where l.track_id = t.id and l.status = 'hit') as lyrics,
+         (select nullif(concat_ws(char(10, 10), g.about, g.annotations), '')
+          from genius g where g.track_id = t.id) as meaning
        from tracks t
        order by exists (select 1 from track_sources s where s.track_id = t.id
                         and s.source in ('liked', 'playlist', 'top')) desc, t.id`,

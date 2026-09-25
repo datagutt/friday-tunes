@@ -209,7 +209,7 @@ const schedule = Command.make('schedule').pipe(
   Command.withSubcommands([
     scheduleCommand(
       'install',
-      'Install the launchd jobs: full sync Fridays 13:00, discography trickle hourly.',
+      'Install the launchd jobs: full sync Fridays 13:00, Spotify and Genius trickle hourly.',
       install,
     ),
     scheduleCommand('uninstall', 'Remove the launchd jobs.', uninstall),

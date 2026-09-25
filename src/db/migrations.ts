@@ -141,4 +141,23 @@ export const migrations: ReadonlyArray<string> = [
   create index spotify_albums_pending on spotify_albums(artist_id, tracks_synced_at);
   alter table artists add column spotify_albums_at integer;
   `,
+  `
+  -- Genius explains what a song is about: its About text and the
+  -- listener annotations. That reaches themes that titles, tags and lyrics
+  -- miss, like a song's backstory or hidden meaning.
+  create table genius (
+    track_id integer primary key references tracks(id) on delete cascade,
+    status text not null,
+    genius_id integer,
+    about text,
+    annotations text,
+    fetched_at integer not null
+  );
+
+  drop table tracks_fts;
+  create virtual table tracks_fts using fts5(
+    title, artists, album, tags, lyrics, meaning,
+    tokenize = 'unicode61 remove_diacritics 2'
+  );
+  `,
 ];

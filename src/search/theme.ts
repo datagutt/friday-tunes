@@ -28,9 +28,9 @@ export interface ThemeRow extends Row {
   readonly signals: ReadonlyArray<string>;
 }
 
-// No single signal is reliable: tags are sparse, lyrics cover about half the
-// library, titles are literal, and embeddings drift toward title words. A
-// track that several signals agree on ranks first.
+// No single signal is reliable: tags are sparse, lyrics and Genius notes
+// cover part of the library, titles are literal, and embeddings drift
+// toward title words. A track that several signals agree on ranks first.
 export const themeSearch = (db: Database, options: ThemeOptions) => {
   const base: Omit<SearchOptions, 'mode' | 'query'> = {
     limit: PER_SIGNAL,
@@ -58,6 +58,10 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
     lists.push({
       signal: `lyrics:${word}`,
       rows: search(db, { ...base, mode: 'lyrics', query: word }),
+    });
+    lists.push({
+      signal: `meaning:${word}`,
+      rows: search(db, { ...base, mode: 'meaning', query: word }),
     });
   }
   for (const tag of options.tags) {

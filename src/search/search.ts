@@ -7,6 +7,7 @@ export const MODES = [
   'album',
   'lyrics',
   'tag',
+  'meaning',
   'year',
   'vibe',
 ] as const;
@@ -70,7 +71,14 @@ const FTS_COLUMN: Partial<Record<Mode, string>> = {
   artist: 'artists',
   album: 'album',
   lyrics: 'lyrics',
+  meaning: 'meaning',
   tag: 'tags',
+};
+
+// Positions of the long text columns in tracks_fts.
+const SNIPPET_COLUMNS: Partial<Record<Mode, number>> = {
+  lyrics: 4,
+  meaning: 5,
 };
 
 // Quotes every token so user input cannot inject FTS5 operators. A trailing
@@ -158,8 +166,10 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
     from = 'tracks_fts f join tracks t on t.id = f.rowid';
     where.push('tracks_fts match $fts');
     params.fts = ftsQuery(column, options.query);
-    if (options.mode === 'lyrics') {
-      extra = ", snippet(tracks_fts, 4, '[', ']', '...', 12) as match";
+    // Long text columns show where they matched and rank by relevance.
+    const snippetColumn = SNIPPET_COLUMNS[options.mode];
+    if (snippetColumn !== undefined) {
+      extra = `, snippet(tracks_fts, ${snippetColumn}, '[', ']', '...', 12) as match`;
       order = 'in_library desc, f.rank';
     }
   } else if (options.mode === 'vibe') {

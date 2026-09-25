@@ -1,22 +1,7 @@
-import { Effect, Redacted, Schema } from 'effect';
-import { HttpError, request, requestJson, retryTransient } from '../http';
-import { normalizeArtist, normalizeTitle } from '../normalize';
+import { Effect, type Redacted } from 'effect';
+import { findSong } from '../genius/client';
+import { HttpError, request } from '../http';
 import type { LyricsQuery, LyricsResult } from './lrclib';
-
-const Search = Schema.Struct({
-  response: Schema.Struct({
-    hits: Schema.Array(
-      Schema.Struct({
-        type: Schema.String,
-        result: Schema.Struct({
-          url: Schema.String,
-          title: Schema.String,
-          primary_artist: Schema.Struct({ name: Schema.String }),
-        }),
-      }),
-    ),
-  }),
-});
 
 const ENTITIES: Record<string, string> = {
   amp: '&',
@@ -83,24 +68,10 @@ export const extractLyrics = async (html: string) => {
 // Cloudflare 403. Any failure counts as a miss so the sync keeps going.
 export const geniusLyrics = (query: LyricsQuery, token: Redacted.Redacted) =>
   Effect.gen(function* () {
-    const search = yield* retryTransient(
-      requestJson(
-        'genius',
-        `https://api.genius.com/search?q=${encodeURIComponent(`${query.artist} ${query.title}`)}`,
-        { headers: { Authorization: `Bearer ${Redacted.value(token)}` } },
-      ),
-    ).pipe(Effect.flatMap(Schema.decodeUnknown(Search)));
-    const title = normalizeTitle(query.title);
-    const artist = normalizeArtist(query.artist);
-    const hit = search.response.hits.find(
-      (h) =>
-        h.type === 'song' &&
-        normalizeTitle(h.result.title) === title &&
-        normalizeArtist(h.result.primary_artist.name) === artist,
-    );
-    if (!hit) return { status: 'miss' } as LyricsResult;
+    const song = yield* findSong(query.title, query.artist, token);
+    if (!song) return { status: 'miss' } as LyricsResult;
 
-    const html = yield* request('genius', hit.result.url).pipe(
+    const html = yield* request('genius', song.url).pipe(
       Effect.flatMap((res) => Effect.promise(() => res.text())),
     );
     const plain = yield* Effect.promise(() => extractLyrics(html));

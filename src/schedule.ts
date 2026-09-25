@@ -29,13 +29,13 @@ const JOBS: ReadonlyArray<Job> = [
     summary: '`ft sync --full` on Fridays at 13:00',
   },
   {
-    // Each run spends a small Spotify call budget; hourly runs fill the
-    // discographies over a couple of weeks without tripping rate limits.
-    label: 'com.github.datagutt.friday-tunes.discography',
-    args: ['sync', '--step', 'discography'],
+    // Each run spends a small call budget on Spotify discographies and
+    // Genius notes; hourly runs fill both in without tripping rate limits.
+    label: 'com.github.datagutt.friday-tunes.trickle',
+    args: ['sync', '--step', 'discography', '--step', 'genius'],
     timing: `<key>StartInterval</key>
   <integer>3600</integer>`,
-    summary: '`ft sync --step discography` every hour',
+    summary: '`ft sync --step discography --step genius` every hour',
   },
 ];
 

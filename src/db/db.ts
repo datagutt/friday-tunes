@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Context, Effect, Layer } from 'effect';
 import * as sqliteVec from 'sqlite-vec';
 import { dbPath, sqliteLib } from '../config';
+import { rebuildFts } from '../search/fts';
 import { migrations } from './migrations';
 
 export class Db extends Context.Tag('Db')<Db, Database>() {}
@@ -23,16 +24,19 @@ const useCustomSqlite = (lib: string) => {
   customSqliteSet = true;
 };
 
+// Returns how many migrations ran, so the caller can rebuild derived data.
 export const migrate = (db: Database) => {
   const { user_version: current } = db
     .query<{ user_version: number }, []>('pragma user_version')
     .get() ?? { user_version: 0 };
-  migrations.slice(current).forEach((sql, i) => {
+  const pending = migrations.slice(current);
+  pending.forEach((sql, i) => {
     db.transaction(() => {
       db.run(sql);
       db.run(`pragma user_version = ${current + i + 1}`);
     })();
   });
+  return pending.length;
 };
 
 export const openDatabase = (file: string, lib: string) => {
@@ -44,7 +48,8 @@ export const openDatabase = (file: string, lib: string) => {
   db.run('pragma foreign_keys = on');
   db.run('pragma busy_timeout = 5000');
   sqliteVec.load(db);
-  migrate(db);
+  // A migration can recreate the FTS table, which holds no data of its own.
+  if (migrate(db) > 0) rebuildFts(db);
   return db;
 };
 
