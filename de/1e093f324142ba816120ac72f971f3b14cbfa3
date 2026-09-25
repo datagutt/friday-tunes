@@ -1,0 +1,50 @@
+test/normalize.test.ts
+  s_bc94914fdfc7b0::t_bb1761e6a9e83a 1-51
+src/normalize.ts
+  s_bc94914fdfc7b0::t_b3f3fc224a50f9 1-29
+  s_bc94914fdfc7b0::t_3a8046f92b917e 30
+src/db/db.ts
+  s_bc94914fdfc7b0::t_8ed03b8244154e 1-68
+  s_bc94914fdfc7b0::t_5749ff55d21f8b 69
+src/db/library.ts
+  s_bc94914fdfc7b0::t_ec555ddfcfdc42 1-175
+test/library.test.ts
+  s_bc94914fdfc7b0::t_e4ebe58d4187e8 1-98
+  s_bc94914fdfc7b0::t_e18821ba5674ae 99-101
+src/config.ts
+  s_bc94914fdfc7b0::t_342c9b4323a7ec 1-48
+src/db/migrations.ts
+  s_bc94914fdfc7b0::t_673d3c69d013a1 1-131
+.env.example
+  s_bc94914fdfc7b0::t_512a5604d1090d 1-18
+.gitignore
+  s_bc94914fdfc7b0::t_e23758c7e6970e 1-37
+README.md
+  s_bc94914fdfc7b0::t_19fbfad8cea503 1-15
+bin/ft
+  s_bc94914fdfc7b0::t_80946ec42383b7 1-14
+biome.json
+  s_bc94914fdfc7b0::t_9eab61131796ee 1-28
+bun.lock
+  s_bc94914fdfc7b0::t_d43821e0f70640 1-204
+package.json
+  s_bc94914fdfc7b0::t_7474caea84ce44 1-26
+tsconfig.json
+  s_bc94914fdfc7b0::t_cab6d52770bcb2 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "de1e093f324142ba816120ac72f971f3b14cbfa3",
+  "prompts": {},
+  "sessions": {
+    "s_bc94914fdfc7b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8019d45-f939-4ba3-aec4-2039fedaa321",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <thomas.lekanger@hotmail.com>"
+    }
+  }
+}
