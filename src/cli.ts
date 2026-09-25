@@ -5,6 +5,9 @@ import { Db, DbLive } from './db/db';
 import { formatRow, MODES, SOURCE_FILTERS, search } from './search/search';
 import { stats } from './search/stats';
 import { authorize } from './spotify/auth';
+import { Spotify } from './spotify/client';
+import { createPlaylist } from './spotify/playlist';
+import { resolveTracks } from './spotify/resolve';
 import { isStale, runSync, STEPS } from './sync';
 
 const auth = Command.make('auth', {}, () =>
@@ -74,8 +77,61 @@ const statsCommand = Command.make('stats', {}, () =>
   Effect.flatMap(Db, (db) => Console.log(stats(db))),
 ).pipe(Command.withDescription('Show index coverage and sync ages.'));
 
+const trackIds = Args.integer({ name: 'track-id' }).pipe(Args.atLeast(1));
+
+const resolve = Command.make('resolve', { ids: trackIds }, ({ ids }) =>
+  resolveTracks(ids).pipe(
+    Effect.flatMap((resolved) =>
+      Console.log(JSON.stringify(Object.fromEntries(resolved), null, 2)),
+    ),
+    Effect.provide(Spotify.Default),
+  ),
+).pipe(
+  Command.withDescription(
+    'Find Spotify IDs for indexed tracks that have none (scrobble-only tracks).',
+  ),
+);
+
+const playlistCreate = Command.make(
+  'create',
+  {
+    name: Options.text('name'),
+    description: Options.text('description').pipe(Options.withDefault('')),
+    ids: trackIds,
+  },
+  (options) =>
+    createPlaylist({ ...options, trackIds: options.ids }).pipe(
+      Effect.flatMap((result) =>
+        Console.log(
+          [
+            `Created ${result.url} with ${result.added} tracks.`,
+            ...(result.missing.length
+              ? [`Not on Spotify: ${result.missing.join('; ')}`]
+              : []),
+          ].join('\n'),
+        ),
+      ),
+      Effect.provide(Spotify.Default),
+    ),
+).pipe(
+  Command.withDescription(
+    'Create a private Spotify playlist from indexed track IDs.',
+  ),
+);
+
+const playlist = Command.make('playlist').pipe(
+  Command.withSubcommands([playlistCreate]),
+);
+
 const root = Command.make('ft').pipe(
-  Command.withSubcommands([auth, sync, searchCommand, statsCommand]),
+  Command.withSubcommands([
+    auth,
+    sync,
+    searchCommand,
+    statsCommand,
+    resolve,
+    playlist,
+  ]),
 );
 
 const cli = Command.run(root, { name: 'friday-tunes', version: '0.1.0' });
