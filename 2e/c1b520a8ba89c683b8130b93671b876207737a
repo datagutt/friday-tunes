@@ -1,0 +1,29 @@
+test/lyrics.test.ts
+  s_bc94914fdfc7b0::t_2a24edd04e6bf6 1-21
+src/lyrics/lrclib.ts
+  s_bc94914fdfc7b0::t_8085b554935647 1-84
+src/lyrics/sync.ts
+  s_bc94914fdfc7b0::t_fface59d344ba7 1-82
+  s_bc94914fdfc7b0::t_86a8ace0f29cdf 83-86
+src/lyrics/genius.ts
+  s_bc94914fdfc7b0::t_7941afff3b2aaa 1-105
+  s_bc94914fdfc7b0::t_70a7b128c1a0fb 106-117
+src/sync.ts
+  s_bc94914fdfc7b0::t_4e525b74ce590c 7,48-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "2ec1b520a8ba89c683b8130b93671b876207737a",
+  "prompts": {},
+  "sessions": {
+    "s_bc94914fdfc7b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8019d45-f939-4ba3-aec4-2039fedaa321",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <thomas.lekanger@hotmail.com>"
+    }
+  }
+}
