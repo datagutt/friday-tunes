@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Resolves the repo through symlinks so `ft` works from any directory
+# and always reads this repo's .env, not the caller's.
+set -euo pipefail
+src="${BASH_SOURCE[0]}"
+while [ -L "$src" ]; do
+  dir="$(cd -P "$(dirname "$src")" && pwd)"
+  src="$(readlink "$src")"
+  [[ $src != /* ]] && src="$dir/$src"
+done
+root="$(cd -P "$(dirname "$src")/.." && pwd)"
+env_args=()
+[ -f "$root/.env" ] && env_args=(--env-file="$root/.env")
+exec bun "${env_args[@]}" "$root/src/cli.ts" "$@"

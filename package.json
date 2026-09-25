@@ -1,0 +1,26 @@
+{
+  "name": "friday-tunes",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/bun": "latest",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@effect/cli": "^0.77.2",
+    "@effect/platform": "^0.97.2",
+    "@effect/platform-bun": "^0.91.2",
+    "effect": "^3.22.2",
+    "sqlite-vec": "^0.1.9"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check --error-on-warnings",
+    "lint:fix": "biome check --write"
+  },
+  "bin": {
+    "ft": "./bin/ft"
+  }
+}
