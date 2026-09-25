@@ -4,6 +4,7 @@ import { openDatabase } from '../src/db/db';
 import { addSource, upsertTrack } from '../src/db/library';
 import { rebuildFts } from '../src/search/fts';
 import { ftsQuery, type SearchOptions, search } from '../src/search/search';
+import { themeSearch } from '../src/search/theme';
 
 const SQLITE_LIB = '/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib';
 let db: Database;
@@ -140,4 +141,27 @@ test('vibe mode orders by vector distance and applies source filters', () => {
   expect(
     titles({ mode: 'vibe', vector: vector(0), source: 'catalog' }),
   ).toEqual(['Magical Mystery Tour']);
+});
+
+test('theme search ranks tracks that several signals agree on first', () => {
+  const rows = themeSearch(db, {
+    words: ['magic', 'spell'],
+    tags: ['dreamy'],
+    source: 'any',
+    minPlays: 0,
+    limit: 10,
+  });
+  // Both hit two signals at rank one; the tie goes to the one with plays.
+  expect(rows.slice(0, 2).map((r) => r.title)).toEqual([
+    'Under Your Spell',
+    'Magic',
+  ]);
+  expect(rows.find((r) => r.title === 'Magic')?.signals).toEqual([
+    'title:magic',
+    'lyrics:magic',
+  ]);
+  expect(rows.find((r) => r.title === 'Under Your Spell')?.signals).toEqual([
+    'title:spell',
+    'tag:dreamy',
+  ]);
 });

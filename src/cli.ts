@@ -1,11 +1,19 @@
 import { Args, Command, Options } from '@effect/cli';
 import { BunContext, BunRuntime } from '@effect/platform-bun';
-import { type ConfigError, Console, Effect, Layer, Logger } from 'effect';
+import {
+  type ConfigError,
+  Console,
+  Effect,
+  Layer,
+  Logger,
+  Option,
+} from 'effect';
 import { Db, DbLive } from './db/db';
 import { embed } from './embed/ollama';
 import { install, runNow, uninstall } from './schedule';
 import { formatRow, MODES, SOURCE_FILTERS, search } from './search/search';
 import { stats } from './search/stats';
+import { themeSearch } from './search/theme';
 import { authorize } from './spotify/auth';
 import { Spotify } from './spotify/client';
 import { createPlaylist } from './spotify/playlist';
@@ -44,6 +52,28 @@ const sync = Command.make(
     ),
 ).pipe(Command.withDescription('Update the local index.'));
 
+const syncIfStale = (noSync: boolean) =>
+  Effect.gen(function* () {
+    if (noSync || !(yield* isStale)) return;
+    yield* runSync({ full: false, steps: [] }).pipe(
+      Effect.catchAll((error) =>
+        Effect.logWarning(`quick sync skipped: ${error.message}`),
+      ),
+    );
+  });
+
+const commonSearchOptions = {
+  limit: Options.integer('limit').pipe(Options.withDefault(50)),
+  source: Options.choice('source', SOURCE_FILTERS).pipe(
+    Options.withDefault('any' as const),
+  ),
+  minPlays: Options.integer('min-plays').pipe(Options.withDefault(0)),
+  json: Options.boolean('json'),
+  noSync: Options.boolean('no-sync').pipe(
+    Options.withDescription('Skip the automatic quick sync of a stale index.'),
+  ),
+};
+
 const searchCommand = Command.make(
   'search',
   {
@@ -51,32 +81,16 @@ const searchCommand = Command.make(
       MODES.map((m) => [m, m] as [string, (typeof MODES)[number]]),
     ),
     query: Args.text({ name: 'query' }).pipe(Args.atLeast(1)),
-    limit: Options.integer('limit').pipe(Options.withDefault(50)),
-    source: Options.choice('source', SOURCE_FILTERS).pipe(
-      Options.withDefault('any' as const),
-    ),
-    minPlays: Options.integer('min-plays').pipe(Options.withDefault(0)),
+    ...commonSearchOptions,
     substring: Options.boolean('substring').pipe(
       Options.withDescription(
         'Title mode: match inside words ("love" finds "lovely").',
       ),
     ),
-    json: Options.boolean('json'),
-    noSync: Options.boolean('no-sync').pipe(
-      Options.withDescription(
-        'Skip the automatic quick sync of a stale index.',
-      ),
-    ),
   },
   (options) =>
     Effect.gen(function* () {
-      if (!options.noSync && (yield* isStale)) {
-        yield* runSync({ full: false, steps: [] }).pipe(
-          Effect.catchAll((error) =>
-            Effect.logWarning(`quick sync skipped: ${error.message}`),
-          ),
-        );
-      }
+      yield* syncIfStale(options.noSync);
       const db = yield* Db;
       const query = options.query.join(' ');
       const vector =
@@ -89,6 +103,48 @@ const searchCommand = Command.make(
       );
     }),
 ).pipe(Command.withDescription('Search the index.'));
+
+const themeCommand = Command.make(
+  'theme',
+  {
+    vibe: Options.text('vibe').pipe(
+      Options.optional,
+      Options.withDescription('Describe the mood for the embedding search.'),
+    ),
+    words: Options.text('word').pipe(
+      Options.repeated,
+      Options.withDescription(
+        'Match in titles and lyrics. Repeat for several.',
+      ),
+    ),
+    tags: Options.text('tag').pipe(
+      Options.repeated,
+      Options.withDescription('Match in Last.fm tags. Repeat for several.'),
+    ),
+    ...commonSearchOptions,
+  },
+  (options) =>
+    Effect.gen(function* () {
+      yield* syncIfStale(options.noSync);
+      const db = yield* Db;
+      const vibe = Option.getOrUndefined(options.vibe);
+      const vector = vibe ? (yield* embed([vibe]))[0] : undefined;
+      const rows = themeSearch(db, { ...options, vibe, vector });
+      yield* Console.log(
+        options.json
+          ? JSON.stringify(rows, null, 2)
+          : rows
+              .map(
+                (r) => `${formatRow(r)}\n        via ${r.signals.join(', ')}`,
+              )
+              .join('\n') || 'No matches.',
+      );
+    }),
+).pipe(
+  Command.withDescription(
+    'Combine vibe, title, lyrics and tag searches into one ranked list.',
+  ),
+);
 
 const statsCommand = Command.make('stats', {}, () =>
   Effect.flatMap(Db, (db) => Console.log(stats(db))),
@@ -166,6 +222,7 @@ const root = Command.make('ft').pipe(
     auth,
     sync,
     searchCommand,
+    themeCommand,
     statsCommand,
     resolve,
     playlist,

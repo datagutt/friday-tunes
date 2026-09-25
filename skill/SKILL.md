@@ -17,6 +17,7 @@ Pick from this index instead of paging through Spotify with MCP tools. The Spoti
 
 Always pass `--json` when you read results. Every row has an `id`: the index's own track ID, which `ft playlist create` takes. Rows with a `spotify_url` link straight to Spotify. Rows without one are scrobble or catalog tracks that `ft playlist create` looks up on Spotify.
 
+- `ft theme --vibe "<mood>" --word <w> --word <w> --tag <t> --source library --json`: the main tool for open themes. It runs a vibe search, a title and lyrics search per word, and a tag search per tag, then fuses them into one ranked list. Each row lists the searches that found it in `signals`, and `score` rises when several agree. Words accept a trailing `*`.
 - `ft search title <words>`: word match in the title. Add `--substring` to match inside words ("love" also finds "lovely").
 - `ft search artist <words>`: word match in any artist name on the track.
 - `ft search album <words>`, `ft search lyrics <words>`, `ft search tag <words>`: the same match on album, lyrics or Last.fm tags (track and artist tags).
@@ -43,8 +44,15 @@ A search runs a quick sync first when the index is more than 12 hours old. Its p
    - open vibe that needs judgment ("songs that evoke magic")
 2. Search:
    1. For literal themes, expand the word list before searching. "Color" means red, blue, green, black, white, gold, yellow, purple, pink, grey and gray, and Norwegian words too (rød, blå, grønn, svart, hvit, gul, rosa). The user listens to a lot of Norwegian music.
-   2. For vibe themes, run several searches: related title words, lyric words, and tags. Then add songs you know fit the vibe, found through `ft search artist` or `ft search title`.
-   3. Search in parallel where you can.
+   2. For vibe themes, run `ft theme` with a mood description and 5 to 10 related words, in English and Norwegian. Add tags only as extra hints.
+   3. Treat every signal as a hint, never as proof:
+      - Tags are sparse and noisy.
+      - Lyrics cover about half the library.
+      - Title words are literal ("Must Be Nice" matched "fairy tale" in its lyrics).
+      - The vibe search leans toward title words.
+      A track that several signals agree on is a strong candidate. A track with one weak signal needs your own judgment.
+   4. Add songs you know fit the theme but that no signal found, through `ft search artist` or `ft search title`. Your music knowledge is a signal too.
+   5. Search in parallel where you can.
 3. Curate:
    - Prefer tracks with `liked` or `playlist` in `sources`, or with many `plays`. The user actually listens to those.
    - Drop weak literal matches whose word only technically fits. Drop duplicate versions of one song.
