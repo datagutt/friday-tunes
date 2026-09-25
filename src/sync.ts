@@ -1,6 +1,7 @@
 import { Data, Effect, Either } from 'effect';
 import { Db } from './db/db';
 import { getState, setState } from './db/library';
+import { syncEmbeddings } from './embed/sync';
 import { LastFm } from './lastfm/client';
 import { syncScrobbles, syncTags, syncTopArtists } from './lastfm/sync';
 import { syncLock } from './lock';
@@ -48,6 +49,10 @@ const STEP_DEFS = {
   lyrics: {
     quick: false,
     run: (_full: boolean) => Effect.scoped(syncLyrics),
+  },
+  embed: {
+    quick: false,
+    run: (_full: boolean) => syncEmbeddings,
   },
 } satisfies Record<string, StepDef>;
 

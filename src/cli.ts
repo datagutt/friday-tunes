@@ -2,6 +2,7 @@ import { Args, Command, Options } from '@effect/cli';
 import { BunContext, BunRuntime } from '@effect/platform-bun';
 import { Console, Effect, Layer, Logger } from 'effect';
 import { Db, DbLive } from './db/db';
+import { embed } from './embed/ollama';
 import { formatRow, MODES, SOURCE_FILTERS, search } from './search/search';
 import { stats } from './search/stats';
 import { authorize } from './spotify/auth';
@@ -64,7 +65,10 @@ const searchCommand = Command.make(
         );
       }
       const db = yield* Db;
-      const rows = search(db, { ...options, query: options.query.join(' ') });
+      const query = options.query.join(' ');
+      const vector =
+        options.mode === 'vibe' ? (yield* embed([query]))[0] : undefined;
+      const rows = search(db, { ...options, query, vector });
       yield* Console.log(
         options.json
           ? JSON.stringify(rows, null, 2)

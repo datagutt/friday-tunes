@@ -8,6 +8,7 @@ export const MODES = [
   'lyrics',
   'tag',
   'year',
+  'vibe',
 ] as const;
 export type Mode = (typeof MODES)[number];
 
@@ -27,6 +28,8 @@ export interface SearchOptions {
   readonly source: SourceFilter;
   readonly minPlays: number;
   readonly substring: boolean;
+  /** Query embedding; required for vibe mode. */
+  readonly vector?: Float32Array;
 }
 
 export interface Row {
@@ -40,6 +43,7 @@ export interface Row {
   readonly sources: ReadonlyArray<string>;
   readonly tags: ReadonlyArray<string>;
   readonly match?: string;
+  readonly distance?: number;
 }
 
 // "library" means songs the user keeps on Spotify, as opposed to songs that
@@ -119,7 +123,9 @@ const toRow = ({
 });
 
 export const search = (db: Database, options: SearchOptions): Row[] => {
-  const params: Record<string, string | number> = { limit: options.limit };
+  const params: Record<string, string | number | Float32Array> = {
+    limit: options.limit,
+  };
   const where = [sourceFilter[options.source]];
   if (options.minPlays > 0) {
     params.min_plays = options.minPlays;
@@ -148,10 +154,21 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
       extra = ", snippet(tracks_fts, 4, '[', ']', '...', 12) as match";
       order = 'in_library desc, f.rank';
     }
+  } else if (options.mode === 'vibe') {
+    if (!options.vector) throw new Error('Vibe search needs a query embedding');
+    // KNN runs before the source filters, so fetch extra neighbors for the
+    // filters to trim. sqlite-vec caps k at 4096.
+    from = `(select track_id, distance from vec_tracks
+             where embedding match $vec and k = $k) v
+            join tracks t on t.id = v.track_id`;
+    params.vec = options.vector;
+    params.k = Math.min(4096, options.limit * 20);
+    extra = ', round(v.distance, 4) as distance';
+    order = 'v.distance';
   }
 
   return db
-    .query<RawRow, Record<string, string | number>>(
+    .query<RawRow, Record<string, string | number | Float32Array>>(
       `select ${ROW_COLUMNS}${extra} from ${from}
        where ${where.join(' and ')}
        order by ${order} limit $limit`,

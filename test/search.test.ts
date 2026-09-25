@@ -110,3 +110,34 @@ test('ftsQuery quotes user input', () => {
     'title : ("a" AND """b""" AND "OR" AND "c"*)',
   );
 });
+
+test('vibe mode orders by vector distance and applies source filters', () => {
+  const vector = (hot: number) => {
+    const v = new Float32Array(1024);
+    v[hot] = 1;
+    return v;
+  };
+  const insert = db.query(
+    'insert into vec_tracks (track_id, embedding) values (?, ?)',
+  );
+  const ids = db
+    .query<{ id: number; title: string }, []>('select id, title from tracks')
+    .all();
+  const id = (title: string) =>
+    BigInt(ids.find((r) => r.title === title)?.id ?? 0);
+  insert.run(id('Magic'), vector(0));
+  insert.run(id('Under Your Spell'), vector(1));
+  insert.run(
+    id('Magical Mystery Tour'),
+    vector(0).map((x, i) => (i === 1 ? 0.5 : x)),
+  );
+
+  expect(titles({ mode: 'vibe', vector: vector(0) })).toEqual([
+    'Magic',
+    'Magical Mystery Tour',
+    'Under Your Spell',
+  ]);
+  expect(
+    titles({ mode: 'vibe', vector: vector(0), source: 'catalog' }),
+  ).toEqual(['Magical Mystery Tour']);
+});
