@@ -27,15 +27,18 @@ export const syncLyrics = Effect.gen(function* () {
   });
   const retryBefore = Math.floor(Date.now() / 1000) - MISS_RETRY_SECONDS;
   const pending = db
-    .query<Pending, [number]>(
+    .query<Pending, [number, number]>(
       `select t.id, t.title, t.album, t.duration_ms,
          (select a.name from track_artists ta join artists a on a.id = ta.artist_id
           where ta.track_id = t.id order by ta.position limit 1) as artist
        from tracks t left join lyrics l on l.track_id = t.id
-       where (l.track_id is null or (l.status = 'miss' and l.fetched_at < ?))
+       where (l.track_id is null
+         or (l.status = 'miss' and (l.fetched_at < ?
+           -- A miss that only tried LRCLIB gets one Genius try once a token exists.
+           or (? and coalesce(l.source, 'lrclib') = 'lrclib'))))
          and (${ENRICH_TRACKS})`,
     )
-    .all(retryBefore);
+    .all(retryBefore, Option.isSome(token) ? 1 : 0);
   yield* Effect.logInfo(
     `lyrics: ${pending.length} tracks to fetch${Option.isNone(token) ? ' (no Genius token, LRCLIB only)' : ''}`,
   );
@@ -71,7 +74,8 @@ export const syncLyrics = Effect.gen(function* () {
     save.run(
       track.id,
       result.status,
-      result.status === 'miss' ? null : source,
+      // For a miss, source records the last source tried.
+      source,
       result.status === 'hit' ? result.plain : null,
       result.status === 'instrumental' ? 1 : 0,
     );

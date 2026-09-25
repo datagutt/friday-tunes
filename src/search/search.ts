@@ -62,6 +62,9 @@ const sourceFilter: Record<SourceFilter, string> = {
     "exists (select 1 from track_sources s where s.track_id = t.id and s.source in ('catalog', 'discography'))",
 };
 
+// Sources small enough for an exact vector scan instead of KNN.
+const SMALL_SOURCES: ReadonlySet<SourceFilter> = new Set(['liked', 'library']);
+
 const FTS_COLUMN: Partial<Record<Mode, string>> = {
   title: 'title',
   artist: 'artists',
@@ -161,13 +164,22 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
     }
   } else if (options.mode === 'vibe') {
     if (!options.vector) throw new Error('Vibe search needs a query embedding');
-    // KNN runs before the source filters, so fetch extra neighbors for the
-    // filters to trim. sqlite-vec caps k at 4096.
-    from = `(select track_id, distance from vec_tracks
-             where embedding match $vec and k = $k) v
-            join tracks t on t.id = v.track_id`;
     params.vec = options.vector;
-    params.k = Math.min(4096, options.limit * 20);
+    if (SMALL_SOURCES.has(options.source)) {
+      // A full scan costs ~1 s on the few thousand library tracks and is
+      // exact. On the whole index it takes over 10 s, hence KNN below.
+      from = `(select track_id, vec_distance_cosine(embedding, $vec) as distance
+               from vec_tracks) v
+              join tracks t on t.id = v.track_id`;
+    } else {
+      // KNN runs before the source filters, so a filtered search fetches
+      // the most neighbors sqlite-vec allows and lets the filters trim.
+      from = `(select track_id, distance from vec_tracks
+               where embedding match $vec and k = $k) v
+              join tracks t on t.id = v.track_id`;
+      params.k =
+        options.source === 'any' ? Math.min(4096, options.limit * 20) : 4096;
+    }
     extra = ', round(v.distance, 4) as distance';
     order = 'v.distance';
   }
