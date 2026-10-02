@@ -1,0 +1,70 @@
+src/db/bios.ts
+  s_0f5bd2b3a5f3ae::t_526d2db27b102e 30-35
+  s_0f5bd2b3a5f3ae::t_58a9783cbabac3 1-29,36-37
+test/genius.test.ts
+  s_0f5bd2b3a5f3ae::t_72b81b0f6dc05e 18,67-99,116-128,133,143-145
+  s_0f5bd2b3a5f3ae::t_87c3e9a7b39de7 146
+src/lastfm/schema.ts
+  s_0f5bd2b3a5f3ae::t_e8f6010e5c1ed0 65-74
+test/search.test.ts
+  s_0f5bd2b3a5f3ae::t_1410863ad3c6c3 154-156,161-163,173-221
+  s_0f5bd2b3a5f3ae::t_af1a7f6b745890 222-245
+src/search/theme.ts
+  s_0f5bd2b3a5f3ae::t_cbc6e83297dee8 3,13-28,43,56,58-62,64-69,76-84,86-88,90,102-104,106,114,117-122,132-135
+  s_0f5bd2b3a5f3ae::t_bf419bb81a6142 33-40,70-75,85,91-99
+  s_0f5bd2b3a5f3ae::t_22b1dcb59f4329 108-113,116
+src/cli.ts
+  s_0f5bd2b3a5f3ae::t_bf419bb81a6142 129-137,142,156-165
+  s_0f5bd2b3a5f3ae::t_9fc995d71a0b51 14-20,81-86,112-114,178
+src/sync.ts
+  s_0f5bd2b3a5f3ae::t_d4d03e999a8939 6,71-74
+  s_0f5bd2b3a5f3ae::t_81cc88a845c797 75
+src/genius/artists.ts
+  s_0f5bd2b3a5f3ae::t_7c00af86bfc8a3 1-84
+src/search/search.ts
+  s_0f5bd2b3a5f3ae::t_90e6a0318cbbcf 223-225,227-228,230-231,233,237
+  s_0f5bd2b3a5f3ae::t_e8cd899d2cbb1f 13,33-35,39-46,110-114,168-174,218-222,226,229,232,234-236,238-240
+test/lastfm.test.ts
+  s_0f5bd2b3a5f3ae::t_0d8626f9fbf113 4-5,91-96,98-105,107-109,111-133
+  s_0f5bd2b3a5f3ae::t_a72ba0e029cbaf 97,106,110
+src/lastfm/bios.ts
+  s_0f5bd2b3a5f3ae::t_e8f6010e5c1ed0 1-11,13-25,30-39
+  s_0f5bd2b3a5f3ae::t_22b1dcb59f4329 26-29
+  s_0f5bd2b3a5f3ae::t_a72ba0e029cbaf 12
+src/lastfm/sync.ts
+  s_0f5bd2b3a5f3ae::t_c62635865e7155 183-185,189
+src/embed/sync.ts
+  s_0f5bd2b3a5f3ae::t_d260ac1e73ff0a 40,66-71,73-75,77-79,83,85,88-89,99-103,106,108-114,117-156
+  s_0f5bd2b3a5f3ae::t_c62635865e7155 76,80-82,84,86-87,90-98,104-105,107
+skill/SKILL.md
+  s_0f5bd2b3a5f3ae::t_52911527fe605b 12,21-26,32-33,38,56-65,67-68,70-71
+  s_0f5bd2b3a5f3ae::t_29f50c1bf425bf 13
+README.md
+  s_0f5bd2b3a5f3ae::t_29f50c1bf425bf 11-12
+  s_0f5bd2b3a5f3ae::t_27ff3b5d8ee005 53-56,66,69
+src/genius/sync.ts
+  s_0f5bd2b3a5f3ae::t_e98a78102382aa 5-6,11-12,107-108,114,148,150
+src/genius/budget.ts
+  s_0f5bd2b3a5f3ae::t_7c00af86bfc8a3 1-19
+src/db/migrations.ts
+  s_0f5bd2b3a5f3ae::t_c62635865e7155 165-167
+  s_0f5bd2b3a5f3ae::t_e09317e4402cc2 163-164,168-182
+src/search/stats.ts
+  s_0f5bd2b3a5f3ae::t_de4d93a5d91c71 32-36,42,48-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ba1f4ada243e3a149f506c1e03447feb20be71ac",
+  "prompts": {},
+  "sessions": {
+    "s_0f5bd2b3a5f3ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "09acc199-aa42-435a-8e99-4c8e9e9a4012",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <thomas.lekanger@hotmail.com>"
+    }
+  }
+}
