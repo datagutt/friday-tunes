@@ -3,6 +3,7 @@ import { Db } from './db/db';
 import { getState, setState } from './db/library';
 import { syncEmbeddings } from './embed/sync';
 import { syncGenius } from './genius/sync';
+import { syncLastFmBios } from './lastfm/bios';
 import { syncCatalogs } from './lastfm/catalog';
 import { LastFm } from './lastfm/client';
 import { syncScrobbles, syncTags, syncTopArtists } from './lastfm/sync';
@@ -66,6 +67,11 @@ const STEP_DEFS = {
   tags: {
     quick: false,
     run: (_full: boolean) => syncTags.pipe(Effect.provide(LastFm.Default)),
+  },
+  bios: {
+    quick: false,
+    run: (_full: boolean) =>
+      syncLastFmBios.pipe(Effect.provide(LastFm.Default)),
   },
   lyrics: {
     quick: false,

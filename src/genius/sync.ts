@@ -2,11 +2,14 @@ import { Duration, Effect, Option, Schema } from 'effect';
 import { geniusToken } from '../config';
 import { Db } from '../db/db';
 import { ENRICH_TRACKS } from '../lastfm/sync';
+import { syncGeniusArtists } from './artists';
+import { makeBudget } from './budget';
 import { findSong, geniusGet } from './client';
 
 // Genius publishes no rate limit. After Spotify handed out a 22 hour block,
 // this runs as a slow trickle from the hourly launchd job: about 300 songs
-// per run, so the ~9k library tracks fill in over a day or two.
+// per run, so the ~9k library tracks fill in over a day or two. Artist bios
+// get whatever the songs leave of the budget.
 const CALLS_PER_RUN = 900;
 const PACE = Duration.seconds(1);
 // A song not on Genius today may be added later.
@@ -101,17 +104,14 @@ export const syncGenius = Effect.gen(function* () {
        about = excluded.about, annotations = excluded.annotations,
        fetched_at = excluded.fetched_at`,
   );
-  let calls = 0;
-  const spend = <A, E, R>(effect: Effect.Effect<A, E, R>) => {
-    calls++;
-    return Effect.zipLeft(effect, Effect.sleep(PACE));
-  };
+  const budget = makeBudget(CALLS_PER_RUN, PACE);
+  const { spend } = budget;
 
   let done = 0;
   let hits = 0;
   for (const track of pending) {
     // A song takes up to three calls; do not start one the budget cannot finish.
-    if (calls + 3 > CALLS_PER_RUN) break;
+    if (!budget.canAfford(3)) break;
     const song = yield* spend(findSong(track.title, track.artist, token.value));
     if (!song) {
       save.run(track.id, 'miss', null, null, null);
@@ -145,6 +145,7 @@ export const syncGenius = Effect.gen(function* () {
     hits++;
   }
   yield* Effect.logInfo(
-    `genius: ${done} songs checked (${hits} on Genius) with ${calls} calls, ${pending.length - done} left`,
+    `genius: ${done} songs checked (${hits} on Genius) with ${budget.used} calls, ${pending.length - done} left`,
   );
+  yield* syncGeniusArtists(token.value, budget);
 });

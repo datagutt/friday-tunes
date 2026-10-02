@@ -160,4 +160,24 @@ export const migrations: ReadonlyArray<string> = [
     tokenize = 'unicode61 remove_diacritics 2'
   );
   `,
+  `
+  -- Mood themes are mostly about how an artist sounds, which per-track
+  -- text barely says, so artists get their own embedding from their tags.
+  -- Bios are stored for text search but not embedded. A null bio is a
+  -- miss, kept so the fetch is not repeated every run.
+  create table artist_bios (
+    artist_id integer not null references artists(id) on delete cascade,
+    source text not null,
+    bio text,
+    fetched_at integer not null,
+    primary key (artist_id, source)
+  ) without rowid;
+
+  alter table artists add column embed_hash text;
+
+  create virtual table vec_artists using vec0(
+    artist_id integer primary key,
+    embedding float[${EMBED_DIMS}] distance_metric=cosine
+  );
+  `,
 ];

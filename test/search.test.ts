@@ -151,11 +151,16 @@ test('theme search ranks tracks that several signals agree on first', () => {
     minPlays: 0,
     limit: 10,
   });
-  // Both hit two signals at rank one; the tie goes to the one with plays.
+  // Both hit two lists at rank one, but title and lyrics for "magic" are
+  // one piece of evidence, while "spell" in the title and the dreamy tag
+  // are two.
   expect(rows.slice(0, 2).map((r) => r.title)).toEqual([
     'Under Your Spell',
     'Magic',
   ]);
+  const score = (title: string) =>
+    rows.find((r) => r.title === title)?.score ?? 0;
+  expect(score('Under Your Spell')).toBeCloseTo(2 * score('Magic'), 4);
   expect(rows.find((r) => r.title === 'Magic')?.signals).toEqual([
     'title:magic',
     'lyrics:magic',
@@ -164,4 +169,77 @@ test('theme search ranks tracks that several signals agree on first', () => {
     'title:spell',
     'tag:dreamy',
   ]);
+});
+
+test('artist vibe ranks tracks by their artist and skips filtered artists', () => {
+  const vector = (hot: number, second = 0) => {
+    const v = new Float32Array(1024);
+    v[hot] = 1;
+    v[1] = hot === 1 ? 1 : second;
+    return v;
+  };
+  const artist = (name: string) =>
+    BigInt(
+      db
+        .query<{ id: number }, [string]>(
+          'select id from artists where name = ?',
+        )
+        .get(name)?.id ?? 0,
+    );
+  const insert = db.query(
+    'insert into vec_artists (artist_id, embedding) values (?, ?)',
+  );
+  insert.run(artist('Pilot'), vector(0));
+  insert.run(artist('The Beatles'), vector(0, 0.5));
+  insert.run(artist('Desire'), vector(1));
+
+  expect(titles({ mode: 'artist-vibe', vector: vector(0) })).toEqual([
+    'Magic',
+    'Magical Mystery Tour',
+    'Under Your Spell',
+  ]);
+  // Pilot is closest but has no catalog tracks, so The Beatles rank first.
+  expect(
+    titles({ mode: 'artist-vibe', vector: vector(0), source: 'catalog' }),
+  ).toEqual(['Magical Mystery Tour']);
+});
+
+test('excluded tags match as phrases in track and artist tags', () => {
+  db.query(
+    "insert into tags (entity, entity_id, tag, weight) select 'artist', id, 'heavy metal', 50 from artists where name = 'The Beatles'",
+  ).run();
+  rebuildFts(db);
+  const years = (excludeTags: string[]) =>
+    titles({ mode: 'year', query: '1960-2010', excludeTags }).sort();
+  expect(years([])).toEqual([
+    'Magic',
+    'Magical Mystery Tour',
+    'Under Your Spell',
+  ]);
+  expect(years(['metal'])).toEqual(['Magic', 'Under Your Spell']);
+  expect(years(['metal', 'dreamy'])).toEqual(['Magic']);
+  expect(years(['metal heavy'])).toHaveLength(3);
+});
+
+test('theme search runs artist vibe on the sound when one is given', () => {
+  const vector = (hot: number) => {
+    const v = new Float32Array(1024);
+    v[hot] = 1;
+    return v;
+  };
+  const rows = themeSearch(db, {
+    vector: vector(5),
+    soundVector: vector(1),
+    sound: 'dreamy',
+    words: [],
+    tags: [],
+    source: 'any',
+    minPlays: 0,
+    limit: 10,
+  });
+  // Desire's artist vector points at the sound, so its track leads the
+  // artist vibe list even though no track vector is near the vibe.
+  const spell = rows.find((r) => r.title === 'Under Your Spell');
+  expect(spell?.signals).toContain('artist-vibe');
+  expect(rows[0]?.title).toBe('Under Your Spell');
 });

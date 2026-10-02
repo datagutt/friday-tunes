@@ -180,13 +180,13 @@ export const syncTags = Effect.gen(function* () {
   const db = yield* Db;
   const staleBefore = Math.floor(Date.now() / 1000) - TAGS_TTL_SECONDS;
 
+  // Every artist, not only library ones: artist tags drive the artist
+  // vibe search, which also serves catalog themes. One call per artist is
+  // cheap next to one per catalog track.
   const artists = db
     .query<{ id: number; name: string }, [number]>(
       `select a.id, a.name from artists a
-       where coalesce(a.tags_fetched_at, 0) < ?
-         and (a.followed = 1 or a.lastfm_rank is not null
-           or exists (select 1 from track_artists ta join tracks t on t.id = ta.track_id
-                      where ta.artist_id = a.id and (${ENRICH_TRACKS})))`,
+       where coalesce(a.tags_fetched_at, 0) < ?`,
     )
     .all(staleBefore);
   yield* Effect.logInfo(`tags: ${artists.length} artists to fetch`);

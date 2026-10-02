@@ -15,7 +15,7 @@ const annotation = (plain: string, votes: number, extra = {}) => ({
   ...extra,
 });
 
-test('stores About text and ranked annotations, and misses for unknown songs', async () => {
+test('stores song notes and artist bios, and misses for unknown ones', async () => {
   const http = scriptFetch([
     {
       url: 'search?q=Radiohead+Burn+the+Witch',
@@ -64,6 +64,39 @@ test('stores About text and ranked annotations, and misses for unknown songs', a
       },
     },
     { url: 'search?q=Nobody+Unknown', json: { response: { hits: [] } } },
+    {
+      url: 'search?q=Radiohead',
+      json: {
+        response: {
+          hits: [
+            {
+              type: 'song',
+              result: { primary_artist: { id: 9, name: 'Radiohead' } },
+            },
+          ],
+        },
+      },
+    },
+    {
+      url: 'artists/9?text_format=plain',
+      json: {
+        response: { artist: { description: { plain: 'English rock band.' } } },
+      },
+    },
+    // A hit by another artist with a similar name is not this artist.
+    {
+      url: 'search?q=Nobody',
+      json: {
+        response: {
+          hits: [
+            {
+              type: 'song',
+              result: { primary_artist: { id: 5, name: 'Nobody Else' } },
+            },
+          ],
+        },
+      },
+    },
   ]);
 
   const rows = await runWithClock(
@@ -80,16 +113,24 @@ test('stores About text and ranked annotations, and misses for unknown songs', a
         );
       }
       yield* syncGenius;
-      return db
-        .query(
-          'select status, genius_id, about, annotations from genius order by track_id',
-        )
-        .all();
+      return {
+        songs: db
+          .query(
+            'select status, genius_id, about, annotations from genius order by track_id',
+          )
+          .all(),
+        bios: db
+          .query(
+            `select a.name, b.bio from artist_bios b join artists a on a.id = b.artist_id
+             where b.source = 'genius' order by a.id`,
+          )
+          .all(),
+      };
     }).pipe(Effect.provide(layer)),
   );
 
   http.done();
-  expect(rows).toEqual([
+  expect(rows.songs).toEqual([
     {
       status: 'hit',
       genius_id: 7,
@@ -98,5 +139,9 @@ test('stores About text and ranked annotations, and misses for unknown songs', a
         '"Abandon all reason": Groupthink.\n\n"Burn the witch": A mob chant.',
     },
     { status: 'miss', genius_id: null, about: null, annotations: null },
+  ]);
+  expect(rows.bios).toEqual([
+    { name: 'Radiohead', bio: 'English rock band.' },
+    { name: 'Nobody', bio: null },
   ]);
 });

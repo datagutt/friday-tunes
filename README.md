@@ -8,7 +8,8 @@ The index lives in SQLite. It combines these sources:
 - Catalogs of followed and top artists: Last.fm top tracks, plus Spotify discographies that fill in slowly.
 - Lyrics from LRCLIB, with Genius as a fallback.
 - Genius notes: each song's About text and its top listener annotations.
-- Embeddings from a local Ollama model, for vibe searches.
+- Artist bios from Last.fm and Genius. They are stored but not embedded: in tests they pulled unrelated artists into every artist search.
+- Embeddings from a local Ollama model, for vibe searches. Tracks are embedded from their title, tags, lyrics and Genius notes. Artists are embedded from their tags, because a theme like "autumn" is mostly about how an artist sounds.
 
 ## Setup
 
@@ -49,7 +50,10 @@ ft search lyrics rain
 ft search meaning "written about his father"
 ft search tag "dream pop" --min-plays 5
 ft search vibe "enchanted forest, fairytale"
-ft theme --vibe "magical, enchanting" --word magic --word 'witch*' --tag "dream pop"
+ft search artist-vibe "indie folk, acoustic, nordic folk"
+ft search year 1990-1999 --exclude-tag metal
+ft theme --vibe "magical, enchanting" --sound "dream pop, ethereal, folk" \
+  --word magic --word 'witch*' --tag "dream pop" --exclude-tag metal
 ft playlist create --name "Magic" 506 912 786
 ft stats
 ```
@@ -59,10 +63,10 @@ A search runs a quick sync first when the index is more than 12 hours old. Pass 
 ## Sync
 
 - `ft sync` runs the quick steps: `spotify` and `lastfm`.
-- `ft sync --full` also runs `catalog`, `discography`, `tags`, `lyrics`, `genius` and `embed`.
+- `ft sync --full` also runs `catalog`, `discography`, `tags`, `bios`, `lyrics`, `genius` and `embed`.
 - `ft sync --step <name>` runs one step. Repeat `--step` for several.
 
-`ft schedule install` adds two launchd jobs. A full sync runs on Fridays at 13:00. A trickle job runs the `discography` and `genius` steps every hour; each run spends a small call budget, so both fill in over days without tripping rate limits. Logs go to `data/launchd.log`. If the Mac sleeps through a run, launchd starts it on wake. If the Mac is off, the run is skipped.
+`ft schedule install` adds two launchd jobs. A full sync runs on Fridays at 13:00. A trickle job runs the `discography` and `genius` steps every hour; each run spends a small call budget, so both fill in over days without tripping rate limits. The `genius` step spends its budget on songs first and artist bios after. Logs go to `data/launchd.log`. If the Mac sleeps through a run, launchd starts it on wake. If the Mac is off, the run is skipped.
 
 ## Things that will surprise you
 

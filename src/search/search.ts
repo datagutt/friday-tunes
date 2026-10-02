@@ -10,6 +10,7 @@ export const MODES = [
   'meaning',
   'year',
   'vibe',
+  'artist-vibe',
 ] as const;
 export type Mode = (typeof MODES)[number];
 
@@ -29,9 +30,19 @@ export interface SearchOptions {
   readonly source: SourceFilter;
   readonly minPlays: number;
   readonly substring: boolean;
-  /** Query embedding; required for vibe mode. */
+  /** Tracks whose own or artist tags match any of these are left out. */
+  readonly excludeTags?: ReadonlyArray<string>;
+  /** Query embedding; required for the vibe modes. */
   readonly vector?: Float32Array;
 }
+
+export const VIBE_MODES: ReadonlySet<Mode> = new Set(['vibe', 'artist-vibe']);
+
+// How many of the closest artists an artist vibe search draws tracks from,
+// and how many tracks each one contributes. A few per artist keeps one
+// prolific artist from filling the list.
+const VIBE_ARTISTS = 60;
+const TRACKS_PER_ARTIST = 4;
 
 export interface Row {
   readonly id: number;
@@ -96,6 +107,11 @@ export const ftsQuery = (column: string, query: string) => {
   return `${column} : (${tokens.join(' AND ')})`;
 };
 
+// Matches the tag as a phrase, so "metal" also drops "power metal" and
+// "hip hop" does not drop a track tagged "hip" and "hop" separately.
+export const tagPhraseQuery = (tags: ReadonlyArray<string>) =>
+  `tags : (${tags.map((t) => `"${t.replaceAll('"', '""')}"`).join(' OR ')})`;
+
 const parseYears = (query: string): [number, number] => {
   const match = query.trim().match(/^(\d{4})(?:\s*-\s*(\d{4}))?$/);
   if (!match?.[1])
@@ -149,6 +165,13 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
       '(select count(*) from scrobbles sc where sc.track_id = t.id) >= $min_plays',
     );
   }
+  const excludeTags = options.excludeTags?.filter((t) => t.trim()) ?? [];
+  if (excludeTags.length > 0) {
+    params.exclude = tagPhraseQuery(excludeTags);
+    where.push(
+      't.id not in (select rowid from tracks_fts where tracks_fts match $exclude)',
+    );
+  }
 
   let from = 'tracks t';
   let extra = '';
@@ -192,6 +215,29 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
     }
     extra = ', round(v.distance, 4) as distance';
     order = 'v.distance';
+  } else if (options.mode === 'artist-vibe') {
+    if (!options.vector) throw new Error('Vibe search needs a query embedding');
+    params.vec = options.vector;
+    params.artists = VIBE_ARTISTS;
+    params.per_artist = TRACKS_PER_ARTIST;
+    // A few thousand artists scan exactly in well under a second. Artists
+    // are ranked after the source filters, so one without matching tracks
+    // drops out instead of taking a slot.
+    from = `(select track_id, distance from (
+               select ta.track_id, v.distance,
+                 row_number() over (partition by v.artist_id order by
+                   (select count(*) from scrobbles sc where sc.track_id = ta.track_id) desc
+                 ) as n,
+                 dense_rank() over (order by v.distance, v.artist_id) as artist_rank
+               from (select artist_id, vec_distance_cosine(embedding, $vec) as distance
+                     from vec_artists) v
+               join track_artists ta on ta.artist_id = v.artist_id and ta.position = 0
+               join tracks t on t.id = ta.track_id
+               where ${where.join(' and ')})
+             where n <= $per_artist and artist_rank <= $artists) v
+            join tracks t on t.id = v.track_id`;
+    extra = ', round(v.distance, 4) as distance';
+    order = 'v.distance, plays desc';
   }
 
   return db

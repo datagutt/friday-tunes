@@ -37,7 +37,7 @@ export const embedText = (s: Source) =>
 const hash = (text: string) => Bun.hash(text).toString(36);
 
 // Library tracks go first, so an interrupted run already covers the songs
-// themes pick most. Re-running only embeds tracks whose text changed.
+// themes pick most.
 export const syncEmbeddings = Effect.gen(function* () {
   const db = yield* Db;
   const sources = db
@@ -63,30 +63,94 @@ export const syncEmbeddings = Effect.gen(function* () {
     )
     .all();
 
-  const pending = sources
-    .map((s) => ({ id: s.id, text: embedText(s), old: s.embed_hash }))
-    .map((p) => ({ ...p, hash: hash(p.text) }))
-    .filter((p) => p.hash !== p.old);
-  yield* Effect.logInfo(`embeddings: ${pending.length} tracks to embed`);
-
-  const remove = db.query('delete from vec_tracks where track_id = ?');
-  const insert = db.query(
-    'insert into vec_tracks (track_id, embedding) values (?, ?)',
+  yield* writeEmbeddings(
+    'tracks',
+    sources.map((s) => ({ id: s.id, text: embedText(s), old: s.embed_hash })),
   );
-  const mark = db.query('update tracks set embed_hash = ? where id = ?');
-  for (let i = 0; i < pending.length; i += BATCH) {
-    const batch = pending.slice(i, i + BATCH);
-    const vectors = yield* embed(batch.map((p) => p.text));
-    db.transaction(() => {
-      batch.forEach((p, j) => {
-        remove.run(p.id);
-        insert.run(BigInt(p.id), vectors[j] ?? null);
-        mark.run(p.hash, p.id);
-      });
-    })();
-    const done = Math.min(i + BATCH, pending.length);
-    if (done % (BATCH * 40) === 0 || done === pending.length) {
-      yield* Effect.logInfo(`embeddings: ${done}/${pending.length}`);
-    }
-  }
+  yield* syncArtistEmbeddings;
 });
+
+interface ArtistSource {
+  readonly id: number;
+  readonly name: string;
+  readonly tags: string;
+  readonly embed_hash: string | null;
+}
+
+// Tags only. Bios were tried and made artist searches much worse: they are
+// mostly biography (birthplace, release dates), and short generic bios of
+// untagged artists landed near every query and crowded out real matches.
+export const artistEmbedText = (s: ArtistSource) =>
+  `artist: ${s.name}\ntags: ${s.tags}`;
+
+// A name alone says nothing about how an artist sounds, so only tagged
+// artists are embedded, and an artist that lost its tags loses its vector.
+const syncArtistEmbeddings = Effect.gen(function* () {
+  const db = yield* Db;
+  const untagged = `not exists (select 1 from tags g where g.entity = 'artist' and g.entity_id = a.id)`;
+  db.transaction(() => {
+    db.run(
+      `delete from vec_artists where artist_id in (select a.id from artists a where ${untagged})`,
+    );
+    db.run(
+      `update artists as a set embed_hash = null where embed_hash is not null and ${untagged}`,
+    );
+  })();
+  const sources = db
+    .query<ArtistSource, []>(
+      `select a.id, a.name, a.embed_hash,
+         (select group_concat(tag, ', ') from (
+           select tag from tags where entity = 'artist' and entity_id = a.id
+           order by weight desc)) as tags
+       from artists a where not (${untagged})`,
+    )
+    .all();
+  yield* writeEmbeddings(
+    'artists',
+    sources.map((s) => ({
+      id: s.id,
+      text: artistEmbedText(s),
+      old: s.embed_hash,
+    })),
+  );
+});
+
+const TABLES = {
+  tracks: { vec: 'vec_tracks', key: 'track_id' },
+  artists: { vec: 'vec_artists', key: 'artist_id' },
+} as const;
+
+// Re-running only embeds rows whose text changed.
+const writeEmbeddings = (
+  table: keyof typeof TABLES,
+  rows: ReadonlyArray<{ id: number; text: string; old: string | null }>,
+) =>
+  Effect.gen(function* () {
+    const db = yield* Db;
+    const { vec, key } = TABLES[table];
+    const pending = rows
+      .map((p) => ({ ...p, hash: hash(p.text) }))
+      .filter((p) => p.hash !== p.old);
+    yield* Effect.logInfo(`embeddings: ${pending.length} ${table} to embed`);
+
+    const remove = db.query(`delete from ${vec} where ${key} = ?`);
+    const insert = db.query(
+      `insert into ${vec} (${key}, embedding) values (?, ?)`,
+    );
+    const mark = db.query(`update ${table} set embed_hash = ? where id = ?`);
+    for (let i = 0; i < pending.length; i += BATCH) {
+      const batch = pending.slice(i, i + BATCH);
+      const vectors = yield* embed(batch.map((p) => p.text));
+      db.transaction(() => {
+        batch.forEach((p, j) => {
+          remove.run(p.id);
+          insert.run(BigInt(p.id), vectors[j] ?? null);
+          mark.run(p.hash, p.id);
+        });
+      })();
+      const done = Math.min(i + BATCH, pending.length);
+      if (done % (BATCH * 40) === 0 || done === pending.length) {
+        yield* Effect.logInfo(`embeddings: ${done}/${pending.length} ${table}`);
+      }
+    }
+  });

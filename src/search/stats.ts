@@ -29,19 +29,24 @@ export const stats = (db: Database) => {
     )
     .all();
   const tracks = one(db, 'select count(*) as n from tracks');
-  const pct = (n: number) =>
-    tracks ? `${n} (${Math.round((n / tracks) * 100)}%)` : '0';
+  const artists = one(db, 'select count(*) as n from artists');
+  const share = (total: number) => (n: number) =>
+    total ? `${n} (${Math.round((n / total) * 100)}%)` : '0';
+  const pct = share(tracks);
+  const artistPct = share(artists);
 
   return [
     `tracks:      ${tracks}`,
     `  playable:  ${pct(one(db, 'select count(*) as n from tracks where spotify_id is not null'))}`,
     ...sources.map((s) => `  ${`${s.source}:`.padEnd(10)} ${s.n}`),
-    `artists:     ${one(db, 'select count(*) as n from artists')}`,
+    `artists:     ${artists}`,
     `playlists:   ${playlists.map((p) => `${p.n} ${p.status}`).join(', ') || '0'}`,
     `scrobbles:   ${one(db, 'select count(*) as n from scrobbles')}`,
     `tagged:      ${pct(one(db, "select count(distinct entity_id) as n from tags where entity = 'track'"))}`,
     `lyrics:      ${pct(one(db, "select count(*) as n from lyrics where status = 'hit'"))}`,
     `embedded:    ${pct(one(db, 'select count(*) as n from vec_tracks'))}`,
+    `artist bios: ${artistPct(one(db, "select count(*) as n from artist_bios where source = 'lastfm' and bio is not null"))} last.fm, ${artistPct(one(db, "select count(*) as n from artist_bios where source = 'genius' and bio is not null"))} genius`,
+    `artists embedded: ${artistPct(one(db, 'select count(*) as n from vec_artists'))}`,
     `quick sync:  ${age(state('sync.quick.at'))}`,
     `full sync:   ${age(state('sync.full.at'))}`,
   ].join('\n');

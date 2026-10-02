@@ -9,7 +9,8 @@ description: Build a playlist for a music theme (the weekly Friday 15:00 theme a
 - Liked Songs, own playlists, and Spotify top and recent tracks.
 - Last.fm scrobbles since 2008.
 - The catalogs of followed and top artists: Last.fm top tracks, plus Spotify discographies that fill in over time.
-- Last.fm tags, lyrics, Genius notes (a song's About text and listener annotations) and embeddings, where a sync has fetched them.
+- Last.fm tags, lyrics, Genius notes (a song's About text and listener annotations) and track embeddings, where a sync has fetched them.
+- Artist embeddings built from each artist's Last.fm tags.
 
 Pick from this index instead of paging through Spotify with MCP tools. The Spotify app is rate limited hard, and a search here takes milliseconds.
 
@@ -17,17 +18,24 @@ Pick from this index instead of paging through Spotify with MCP tools. The Spoti
 
 Always pass `--json` when you read results. Every row has an `id`: the index's own track ID, which `ft playlist create` takes. Rows with a `spotify_url` link straight to Spotify. Rows without one are scrobble or catalog tracks that `ft playlist create` looks up on Spotify.
 
-- `ft theme --vibe "<mood>" --word <w> --word <w> --tag <t> --source library --json`: the main tool for open themes. It runs a vibe search, a title, lyrics and Genius-notes search per word, and a tag search per tag, then fuses them into one ranked list. Each row lists the searches that found it in `signals`, and `score` rises when several agree. Words accept a trailing `*`.
+- `ft theme --vibe "<mood>" --sound "<genres and sound>" --word <w> --word <w> --tag <t> --exclude-tag <t> --source library --json`: the main tool for open themes. It fuses these searches into one ranked list:
+  - `vibe`: the mood against track embeddings.
+  - `artist-vibe`: the sound against artist embeddings, then each matching artist's most played tracks. This finds the artists that fit a theme, so you do not have to guess them.
+  - One search per word across title, lyrics and Genius notes. The three fields count as one signal, so a common word cannot outvote the vibe.
+  - One search per tag.
+  Each row lists the searches that found it in `signals`, and `score` rises when several agree. Words accept a trailing `*`.
 - `ft search title <words>`: word match in the title. Add `--substring` to match inside words ("love" also finds "lovely").
 - `ft search artist <words>`: word match in any artist name on the track.
 - `ft search album <words>`, `ft search lyrics <words>`, `ft search tag <words>`: the same match on album, lyrics or Last.fm tags (track and artist tags).
 - `ft search meaning <words>`: match in the Genius About text and annotations. Use it for themes about what a song means or where it comes from ("songs about a real event", "songs written for someone"). The `match` field shows the matching passage.
 - `ft search year 1996` or `ft search year 1990-1999`: release year. Scrobble-only tracks often have no year.
-- `ft search vibe <description>`: semantic search over title, artist, tags and lyrics. Describe the mood in a few words; Norwegian works too.
+- `ft search vibe <description>`: semantic search over each track's title, artist, tags, lyrics and Genius notes. Describe the mood in a few words; Norwegian works too.
+- `ft search artist-vibe <sound>`: semantic search over artists, returning up to 4 of each matching artist's most played tracks. Describe genres, instruments and regions ("indie folk, acoustic, nordic folk"). Moods and seasons ("autumn", "cozy") match poorly, because tags rarely name them.
 - Filters for every mode:
   - `--source liked|library|scrobbled|catalog|any`: "library" means liked, own playlists and Spotify top tracks. "catalog" means songs by followed and top artists that the user may not have heard.
   - `--min-plays N`: at least N Last.fm scrobbles.
   - `--limit N`: default 50.
+  - `--exclude-tag <t>`: leave out tracks whose own or artist tags contain this phrase. Repeat for several. "metal" also drops "heavy metal" and "power metal". It is blunt: one stray tag drops an artist entirely (Guns N' Roses carries a metal tag), so use it only for genres that would clearly break the mood, and check what it removed.
 - A trailing `*` on a word is a prefix match. Quote it so the shell does not expand it: `ft search title 'witch*'`.
 - `ft stats`: shows what is indexed and how old the sync is. Run it first if results look thin.
 - `ft playlist create --name "<name>" --description "<text>" <id> <id> ...`: resolves Spotify IDs for scrobble-only tracks and creates a private playlist. It prints the link and any tracks that are not on Spotify.
@@ -45,15 +53,22 @@ A search runs a quick sync first when the index is more than 12 hours old. Its p
    - open vibe that needs judgment ("songs that evoke magic")
 2. Search:
    1. For literal themes, expand the word list before searching. "Color" means red, blue, green, black, white, gold, yellow, purple, pink, grey and gray, and Norwegian words too (rød, blå, grønn, svart, hvit, gul, rosa). The user listens to a lot of Norwegian music.
-   2. For vibe themes, run `ft theme` with a mood description and 5 to 10 related words, in English and Norwegian. Add tags only as extra hints.
-   3. Treat every signal as a hint, never as proof:
-      - Tags are sparse and noisy.
-      - Lyrics and Genius notes cover only part of the library.
+   2. For vibe themes, run `ft theme` with all of these:
+      - `--vibe`: the mood in a sentence.
+      - `--sound`: translate the theme into how it sounds, as genres, instruments and regions. "Autumn" becomes "indie folk, acoustic, singer-songwriter, chamber folk, nordic folk, dream pop". This is how the search finds the right artists. Do not search artist names one by one to cover them.
+      - 5 to 10 related `--word`s, in English and Norwegian. Avoid month and weekday names unless the theme is about them: Genius notes are full of release dates.
+      - `--exclude-tag` for genres that would clearly break the mood, if any.
+      - Tags only as extra hints.
+   3. If the sound covers several styles, run `ft search artist-vibe` once per style as well (for autumn: "nordic folk", "dream pop", "slowcore"), so one style does not crowd out the others.
+   4. Treat every signal as a hint, never as proof:
+      - Tags are noisy, and artist tags say nothing about a single song.
+      - Lyrics and Genius notes cover most of the library, but a word in a lyric can be in passing.
       - Title words are literal ("Must Be Nice" matched "fairy tale" in its lyrics).
-      - The vibe search leans toward title words.
+      - The track vibe search leans toward title words.
+      - `artist-vibe` picks an artist's most played tracks, not the ones that fit best. Check them.
       A track that several signals agree on is a strong candidate. A track with one weak signal needs your own judgment.
-   4. Add songs you know fit the theme but that no signal found, through `ft search artist` or `ft search title`. Your music knowledge is a signal too.
-   5. Search in parallel where you can.
+   5. Fill in specific songs you know fit but that no signal found, through `ft search title` or `ft search artist`. Use this for a few known gaps, not as the main way to find artists. If you find yourself adding many artists by hand, the `--sound` description is too narrow: rewrite it and search again.
+   6. Search in parallel where you can.
 3. Curate:
    - Prefer tracks with `liked` or `playlist` in `sources`, or with many `plays`. The user actually listens to those.
    - Drop weak literal matches whose word only technically fits. Drop duplicate versions of one song.

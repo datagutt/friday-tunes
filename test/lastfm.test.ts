@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
 import { Effect, Layer } from 'effect';
 import { Db, DbMemory } from '../src/db/db';
-import { getState } from '../src/db/library';
+import { getState, upsertArtist } from '../src/db/library';
+import { cleanLastFmBio, syncLastFmBios } from '../src/lastfm/bios';
 import { LastFm } from '../src/lastfm/client';
 import { syncScrobbles } from '../src/lastfm/sync';
 import { runWithClock, scriptFetch, testConfig } from './helpers';
@@ -86,4 +87,47 @@ test('backfill skips nowplaying, accepts single objects and retries error 29', a
     backfillDone: '1',
     before: '100',
   });
+});
+
+test('bio cleanup drops the Last.fm link, license line and markup', () => {
+  expect(
+    cleanLastFmBio(
+      'Indie folk from <b>Åmli</b>.\n\n\n\nAcoustic  pop <a href="https://www.last.fm/music/X">Read more on Last.fm</a>. User-contributed text is available under the Creative Commons By-SA License.',
+    ),
+  ).toBe('Indie folk from Åmli.\nAcoustic pop');
+  expect(
+    cleanLastFmBio(' <a href="https://www.last.fm/music/X">Read more</a>'),
+  ).toBeNull();
+});
+
+test('bios store the cleaned text and a miss for unknown artists', async () => {
+  const http = scriptFetch([
+    {
+      url: 'artist=AURORA',
+      json: { artist: { bio: { content: 'Norwegian singer.' } } },
+    },
+    {
+      url: 'artist=Nobody',
+      json: { error: 6, message: 'The artist you supplied could not be found' },
+    },
+  ]);
+  const bios = await runWithClock(
+    Effect.gen(function* () {
+      const db = yield* Db;
+      upsertArtist(db, { name: 'AURORA' });
+      upsertArtist(db, { name: 'Nobody' });
+      yield* syncLastFmBios;
+      return db
+        .query(
+          `select a.name, b.bio from artist_bios b join artists a on a.id = b.artist_id
+           where b.source = 'lastfm' order by a.id`,
+        )
+        .all();
+    }).pipe(Effect.provide(layer)),
+  );
+  http.done();
+  expect(bios).toEqual([
+    { name: 'AURORA', bio: 'Norwegian singer.' },
+    { name: 'Nobody', bio: null },
+  ]);
 });

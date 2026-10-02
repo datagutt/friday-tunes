@@ -62,3 +62,13 @@ export const TopTags = Schema.Struct({
     ),
   }),
 });
+
+export const ArtistInfo = Schema.Struct({
+  artist: Schema.Struct({
+    bio: Schema.optional(
+      Schema.Struct({
+        content: Schema.optionalWith(Schema.String, { default: () => '' }),
+      }),
+    ),
+  }),
+});

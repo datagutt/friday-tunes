@@ -11,7 +11,13 @@ import {
 import { Db, DbLive } from './db/db';
 import { embed } from './embed/ollama';
 import { install, runNow, uninstall } from './schedule';
-import { formatRow, MODES, SOURCE_FILTERS, search } from './search/search';
+import {
+  formatRow,
+  MODES,
+  SOURCE_FILTERS,
+  search,
+  VIBE_MODES,
+} from './search/search';
 import { stats } from './search/stats';
 import { themeSearch } from './search/theme';
 import { authorize } from './spotify/auth';
@@ -72,6 +78,12 @@ const commonSearchOptions = {
     Options.withDefault('any' as const),
   ),
   minPlays: Options.integer('min-plays').pipe(Options.withDefault(0)),
+  excludeTags: Options.text('exclude-tag').pipe(
+    Options.repeated,
+    Options.withDescription(
+      'Leave out tracks whose own or artist tags match. Repeat for several.',
+    ),
+  ),
   json: Options.boolean('json'),
   noSync: Options.boolean('no-sync').pipe(
     Options.withDescription('Skip the automatic quick sync of a stale index.'),
@@ -97,8 +109,9 @@ const searchCommand = Command.make(
       yield* syncIfStale(options.noSync);
       const db = yield* Db;
       const query = options.query.join(' ');
-      const vector =
-        options.mode === 'vibe' ? (yield* embed([query]))[0] : undefined;
+      const vector = VIBE_MODES.has(options.mode)
+        ? (yield* embed([query]))[0]
+        : undefined;
       const rows = search(db, { ...options, query, vector });
       yield* Console.log(
         options.json
@@ -113,12 +126,20 @@ const themeCommand = Command.make(
   {
     vibe: Options.text('vibe').pipe(
       Options.optional,
-      Options.withDescription('Describe the mood for the embedding search.'),
+      Options.withDescription(
+        'Describe the mood for the track embedding search.',
+      ),
+    ),
+    sound: Options.text('sound').pipe(
+      Options.optional,
+      Options.withDescription(
+        'Genres and sound for the artist embedding search, such as "indie folk, acoustic". Defaults to the vibe.',
+      ),
     ),
     words: Options.text('word').pipe(
       Options.repeated,
       Options.withDescription(
-        'Match in titles and lyrics. Repeat for several.',
+        'Match in titles, lyrics and Genius notes. Repeat for several.',
       ),
     ),
     tags: Options.text('tag').pipe(
@@ -132,8 +153,16 @@ const themeCommand = Command.make(
       yield* syncIfStale(options.noSync);
       const db = yield* Db;
       const vibe = Option.getOrUndefined(options.vibe);
-      const vector = vibe ? (yield* embed([vibe]))[0] : undefined;
-      const rows = themeSearch(db, { ...options, vibe, vector });
+      const sound = Option.getOrUndefined(options.sound);
+      const queries = [vibe, sound].filter((q) => q !== undefined);
+      const vectors = queries.length ? yield* embed(queries) : [];
+      const rows = themeSearch(db, {
+        ...options,
+        vibe,
+        sound,
+        vector: vibe ? vectors[0] : undefined,
+        soundVector: sound ? vectors[vibe ? 1 : 0] : undefined,
+      });
       yield* Console.log(
         options.json
           ? JSON.stringify(rows, null, 2)
@@ -146,7 +175,7 @@ const themeCommand = Command.make(
     }),
 ).pipe(
   Command.withDescription(
-    'Combine vibe, title, lyrics and tag searches into one ranked list.',
+    'Combine vibe, artist vibe, word and tag searches into one ranked list.',
   ),
 );
 
