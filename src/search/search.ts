@@ -8,9 +8,11 @@ export const MODES = [
   'lyrics',
   'tag',
   'meaning',
+  'about',
   'year',
   'vibe',
   'artist-vibe',
+  'about-vibe',
 ] as const;
 export type Mode = (typeof MODES)[number];
 
@@ -41,7 +43,11 @@ export interface SearchOptions {
   readonly trackVector?: Float32Array;
 }
 
-export const VIBE_MODES: ReadonlySet<Mode> = new Set(['vibe', 'artist-vibe']);
+export const VIBE_MODES: ReadonlySet<Mode> = new Set([
+  'vibe',
+  'artist-vibe',
+  'about-vibe',
+]);
 
 // How many of the closest artists an artist vibe search draws tracks from,
 // and how many tracks each one contributes. A few per artist keeps one
@@ -60,6 +66,8 @@ export interface Row {
   readonly plays: number;
   readonly sources: ReadonlyArray<string>;
   readonly tags: ReadonlyArray<string>;
+  /** What the song is about, from the summary step. */
+  readonly about?: string;
   readonly match?: string;
   readonly distance?: number;
 }
@@ -88,6 +96,7 @@ const FTS_COLUMN: Partial<Record<Mode, string>> = {
   album: 'album',
   lyrics: 'lyrics',
   meaning: 'meaning',
+  about: 'about',
   tag: 'tags',
 };
 
@@ -95,6 +104,7 @@ const FTS_COLUMN: Partial<Record<Mode, string>> = {
 const SNIPPET_COLUMNS: Partial<Record<Mode, number>> = {
   lyrics: 4,
   meaning: 5,
+  about: 6,
 };
 
 // Quotes every token so user input cannot inject FTS5 operators. A trailing
@@ -134,11 +144,14 @@ const ROW_COLUMNS = `
   (select group_concat(tag, ', ') from (
     select tag from tags where entity = 'track' and entity_id = t.id
     order by weight desc limit 5)) as tags,
+  (select summary from summaries sm where sm.track_id = t.id and sm.status = 'hit') as about,
   exists (select 1 from track_sources s where s.track_id = t.id and s.source in ${LIBRARY_SOURCES}) as in_library`;
 
-interface RawRow extends Omit<Row, 'sources' | 'tags' | 'spotify_url'> {
+interface RawRow
+  extends Omit<Row, 'sources' | 'tags' | 'spotify_url' | 'about'> {
   sources: string | null;
   tags: string | null;
+  about: string | null;
   in_library: number;
 }
 
@@ -146,6 +159,7 @@ const toRow = ({
   in_library: _,
   sources,
   tags,
+  about,
   match,
   ...rest
 }: RawRow): Row => ({
@@ -156,6 +170,7 @@ const toRow = ({
     : null,
   sources: sources ? sources.split(',') : [],
   tags: tags ? tags.split(', ') : [],
+  ...(about ? { about } : {}),
   ...(match ? { match } : {}),
 });
 
@@ -200,19 +215,21 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
       extra = `, snippet(tracks_fts, ${snippetColumn}, '[', ']', '...', 12) as match`;
       order = 'in_library desc, f.rank';
     }
-  } else if (options.mode === 'vibe') {
+  } else if (options.mode === 'vibe' || options.mode === 'about-vibe') {
     if (!options.vector) throw new Error('Vibe search needs a query embedding');
     params.vec = options.vector;
-    if (SMALL_SOURCES.has(options.source)) {
+    const table = options.mode === 'vibe' ? 'vec_tracks' : 'vec_summaries';
+    // Summaries exist only for enriched tracks, few enough to always scan.
+    if (options.mode === 'about-vibe' || SMALL_SOURCES.has(options.source)) {
       // A full scan costs ~1 s on the few thousand library tracks and is
       // exact. On the whole index it takes over 10 s, hence KNN below.
       from = `(select track_id, vec_distance_cosine(embedding, $vec) as distance
-               from vec_tracks) v
+               from ${table}) v
               join tracks t on t.id = v.track_id`;
     } else {
       // KNN runs before the source filters, so a filtered search fetches
       // the most neighbors sqlite-vec allows and lets the filters trim.
-      from = `(select track_id, distance from vec_tracks
+      from = `(select track_id, distance from ${table}
                where embedding match $vec and k = $k) v
               join tracks t on t.id = v.track_id`;
       params.k =
@@ -283,6 +300,7 @@ export const formatRow = (row: Row) => {
     .filter(Boolean)
     .join(', ');
   const tags = row.tags.length ? `  [${row.tags.join(', ')}]` : '';
+  const about = row.about ? `\n      about: ${row.about}` : '';
   const match = row.match ? `\n      ${row.match.replaceAll('\n', ' / ')}` : '';
-  return `${String(row.id).padStart(6)}  ${row.title} - ${row.artists} (${meta})${tags}${match}`;
+  return `${String(row.id).padStart(6)}  ${row.title} - ${row.artists} (${meta})${tags}${about}${match}`;
 };

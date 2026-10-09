@@ -18,13 +18,16 @@ const RRF_K = 60;
 // The vibe signals carry a theme's mood and count double. Lyrics and Genius
 // notes match common words almost anywhere ("fall", "rain"), so only their
 // best hits count. Genius notes also hold release dates and chart trivia,
-// where month and season words match by accident.
+// where month and season words match by accident. Summaries are short and
+// on topic, so a word in one is better evidence than a word in the lyrics.
 const SIGNALS = {
   vibe: { weight: 2, depth: 200 },
+  'about-vibe': { weight: 2, depth: 200 },
   'artist-vibe': { weight: 2, depth: 200 },
   title: { weight: 1, depth: 200 },
   lyrics: { weight: 1, depth: 50 },
   meaning: { weight: 0.5, depth: 50 },
+  about: { weight: 1, depth: 100 },
   tag: { weight: 1, depth: 200 },
 } satisfies Partial<Record<Mode, { weight: number; depth: number }>>;
 
@@ -91,11 +94,11 @@ export interface ThemeRow extends Row {
   readonly versions?: ReadonlyArray<ThemeVersion>;
 }
 
-// No single signal is reliable: tags are sparse, lyrics and Genius notes
-// cover part of the library, titles are literal, and track embeddings drift
+// No single signal is reliable: tags are sparse, lyrics, Genius notes and
+// summaries cover part of the library, titles are literal, and track embeddings drift
 // toward title words. A track that several signals agree on ranks first.
 //
-// One word searched in title, lyrics and Genius notes is one piece of
+// One word searched in title, lyrics, Genius notes and summaries is one piece of
 // evidence, not three, so a word's fields share a group and only the best
 // of them counts. Otherwise a song that mentions "rain" in passing outranks
 // one the vibe search found.
@@ -129,6 +132,9 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
 
   if (options.vector) {
     run('vibe', options.vibe ?? '', 'vibe', { vector: options.vector });
+    run('about-vibe', options.vibe ?? '', 'about-vibe', {
+      vector: options.vector,
+    });
   }
   // Artists are found by how they sound and contribute the tracks closest
   // to the vibe. Without a sound there is nothing to match artists on:
@@ -141,7 +147,7 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
     });
   }
   for (const word of options.words) {
-    for (const mode of ['title', 'lyrics', 'meaning'] as const) {
+    for (const mode of ['title', 'lyrics', 'meaning', 'about'] as const) {
       run(mode, word, `word:${word}`);
     }
   }
@@ -163,8 +169,9 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
       const score = weight / (RRF_K + rank + 1);
       entry.groups.set(group, Math.max(entry.groups.get(group) ?? 0, score));
       entry.signals.push(signal);
-      // Keep a lyrics snippet if any signal produced one.
-      if (row.match && !entry.row.match)
+      // Keep a lyrics or Genius snippet if any signal produced one. A
+      // summary snippet would repeat the row's `about`.
+      if (row.match && !entry.row.match && !signal.startsWith('about:'))
         entry.row = { ...entry.row, match: row.match };
       fused.set(row.id, entry);
     });

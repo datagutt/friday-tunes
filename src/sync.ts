@@ -19,6 +19,7 @@ import {
   syncRecent,
   syncTop,
 } from './spotify/sync';
+import { syncSummaries } from './summary/sync';
 
 interface StepDef {
   readonly quick: boolean;
@@ -80,6 +81,10 @@ const STEP_DEFS = {
   genius: {
     quick: false,
     run: (_full: boolean) => syncGenius,
+  },
+  summary: {
+    quick: false,
+    run: (_full: boolean) => syncSummaries,
   },
   embed: {
     quick: false,

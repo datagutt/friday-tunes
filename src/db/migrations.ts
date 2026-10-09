@@ -180,4 +180,31 @@ export const migrations: ReadonlyArray<string> = [
     embedding float[${EMBED_DIMS}] distance_metric=cosine
   );
   `,
+  `
+  -- A local LLM's account of what each song is about, and the playlist
+  -- themes it would fit. Titles and lyrics say what a song mentions; this
+  -- says what it is about, like a cheerful tune about nuclear war. A miss
+  -- is model output that did not parse. input_hash covers the prompt, the
+  -- model and the song text, so changing any of them redoes the song.
+  create table summaries (
+    track_id integer primary key references tracks(id) on delete cascade,
+    status text not null,
+    summary text,
+    themes text,
+    language text,
+    input_hash text not null,
+    created_at integer not null
+  );
+
+  create virtual table vec_summaries using vec0(
+    track_id integer primary key,
+    embedding float[${EMBED_DIMS}] distance_metric=cosine
+  );
+
+  drop table tracks_fts;
+  create virtual table tracks_fts using fts5(
+    title, artists, album, tags, lyrics, meaning, about,
+    tokenize = 'unicode61 remove_diacritics 2'
+  );
+  `,
 ];

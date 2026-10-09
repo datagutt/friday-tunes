@@ -44,6 +44,7 @@ export const stats = (db: Database) => {
     `scrobbles:   ${one(db, 'select count(*) as n from scrobbles')}`,
     `tagged:      ${pct(one(db, "select count(distinct entity_id) as n from tags where entity = 'track'"))}`,
     `lyrics:      ${pct(one(db, "select count(*) as n from lyrics where status = 'hit'"))}`,
+    `summaries:   ${pct(one(db, "select count(*) as n from summaries where status = 'hit'"))}`,
     `embedded:    ${pct(one(db, 'select count(*) as n from vec_tracks'))}`,
     `artist bios: ${artistPct(one(db, "select count(*) as n from artist_bios where source = 'lastfm' and bio is not null"))} last.fm, ${artistPct(one(db, "select count(*) as n from artist_bios where source = 'genius' and bio is not null"))} genius`,
     `artists embedded: ${artistPct(one(db, 'select count(*) as n from vec_artists'))}`,

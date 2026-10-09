@@ -37,6 +37,12 @@ export const ollama = Config.all({
     Config.withDefault('http://127.0.0.1:11434'),
   ),
   model: Config.string('OLLAMA_EMBED_MODEL').pipe(Config.withDefault('bge-m3')),
+  // A mixture-of-experts model on Ollama's MLX engine: about 4B parameters
+  // active per token, so it writes several times faster than a dense model
+  // of similar quality, and it handles Norwegian lyrics.
+  summaryModel: Config.string('OLLAMA_SUMMARY_MODEL').pipe(
+    Config.withDefault('gemma4:26b-mlx'),
+  ),
 });
 
 // Apple's system SQLite refuses to load extensions, and sqlite-vec is one.

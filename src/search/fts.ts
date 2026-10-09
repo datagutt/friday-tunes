@@ -1,12 +1,12 @@
 import type { Database } from 'bun:sqlite';
 
 // A full rebuild takes a few seconds even with lyrics, which is cheaper to
-// keep correct than per-row triggers across six source tables.
+// keep correct than per-row triggers across seven source tables.
 export const rebuildFts = (db: Database) =>
   db.transaction(() => {
     db.run('delete from tracks_fts');
     db.run(`
-      insert into tracks_fts (rowid, title, artists, album, tags, lyrics, meaning)
+      insert into tracks_fts (rowid, title, artists, album, tags, lyrics, meaning, about)
       select
         t.id,
         t.title,
@@ -23,9 +23,11 @@ export const rebuildFts = (db: Database) =>
             on g.entity = 'artist' and g.entity_id = ta.artist_id
           where ta.track_id = t.id)),
         l.plain,
-        nullif(concat_ws(char(10, 10), gn.about, gn.annotations), '')
+        nullif(concat_ws(char(10, 10), gn.about, gn.annotations), ''),
+        nullif(concat_ws(char(10), sm.summary, sm.themes), '')
       from tracks t
         left join lyrics l on l.track_id = t.id
         left join genius gn on gn.track_id = t.id
+        left join summaries sm on sm.track_id = t.id and sm.status = 'hit'
     `);
   })();

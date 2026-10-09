@@ -9,6 +9,7 @@ The index lives in SQLite. It combines these sources:
 - Lyrics from LRCLIB, with Genius as a fallback.
 - Genius notes: each song's About text and its top listener annotations.
 - Artist bios from Last.fm and Genius. They are stored but not embedded: in tests they pulled unrelated artists into every artist search.
+- Song summaries from a local Ollama language model: two sentences on what each song is about, plus the playlist themes it would fit. Only songs with lyrics or Genius notes get one, so the model summarizes text instead of guessing from a title.
 - Embeddings from a local Ollama model, for vibe searches. Tracks are embedded from their title, tags, lyrics and Genius notes. Artists are embedded from their tags, because a theme like "autumn" is mostly about how an artist sounds.
 
 ## Setup
@@ -20,7 +21,9 @@ You need macOS, Bun, and a Spotify developer app (the one from spotify-mcp-serve
    brew install sqlite ollama
    brew services start ollama
    ollama pull bge-m3
+   ollama pull gemma4:26b-mlx
    ```
+   The summary model runs on Ollama's MLX engine and needs about 18 GB of memory while it works. Set `OLLAMA_SUMMARY_MODEL` to use another one.
 2. Install dependencies and link the CLI and the skill:
    ```sh
    bun install
@@ -48,6 +51,8 @@ ft search title 'witch*' --source liked
 ft search artist aurora --json
 ft search lyrics rain
 ft search meaning "written about his father"
+ft search about "cold war"
+ft search about-vibe "anti-war protest songs"
 ft search tag "dream pop" --min-plays 5
 ft search vibe "enchanted forest, fairytale"
 ft search artist-vibe "indie folk, acoustic, nordic folk"
@@ -63,10 +68,10 @@ A search runs a quick sync first when the index is more than 12 hours old. Pass 
 ## Sync
 
 - `ft sync` runs the quick steps: `spotify` and `lastfm`.
-- `ft sync --full` also runs `catalog`, `discography`, `tags`, `bios`, `lyrics`, `genius` and `embed`.
+- `ft sync --full` also runs `catalog`, `discography`, `tags`, `bios`, `lyrics`, `genius`, `summary` and `embed`.
 - `ft sync --step <name>` runs one step. Repeat `--step` for several.
 
-`ft schedule install` adds two launchd jobs. A full sync runs on Fridays at 13:00. A trickle job runs the `discography` and `genius` steps every hour; each run spends a small call budget, so both fill in over days without tripping rate limits. The `genius` step spends its budget on songs first and artist bios after. Logs go to `data/launchd.log`. If the Mac sleeps through a run, launchd starts it on wake. If the Mac is off, the run is skipped.
+`ft schedule install` adds two launchd jobs. A full sync runs on Fridays at 13:00. A trickle job runs the `discography`, `genius` and `summary` steps every hour; each run spends a small call budget, so they fill in over days without tripping rate limits. The `genius` step spends its budget on songs first and artist bios after. The `summary` step writes for 20 minutes per run, library songs first. Run `ft sync --step summary` by hand to speed up the first pass. Logs go to `data/launchd.log`. If the Mac sleeps through a run, launchd starts it on wake. If the Mac is off, the run is skipped.
 
 ## Things that will surprise you
 
