@@ -28,3 +28,13 @@ export const normalizeArtist = (name: string) => squash(base(name));
 
 export const matchKey = (primaryArtist: string, title: string) =>
   `${normalizeArtist(primaryArtist)}::${normalizeTitle(title)}`;
+
+const BRACKETED = /\s*[([][^)\]]*[)\]]/gu;
+const DASH_SUFFIX = /\s+-\s+.*$/u;
+
+// Looser than matchKey: covers, live versions and mixes of one song share
+// it, so result lists can show them together. Titles that are nothing but
+// a bracket keep their normalized form.
+export const songKey = (title: string) =>
+  squash(base(title).replace(BRACKETED, '').replace(DASH_SUFFIX, '')) ||
+  normalizeTitle(title);

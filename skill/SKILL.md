@@ -16,14 +16,14 @@ Pick from this index instead of paging through Spotify with MCP tools. The Spoti
 
 ## Commands
 
-Always pass `--json` when you read results. Every row has an `id`: the index's own track ID, which `ft playlist create` takes. Rows with a `spotify_url` link straight to Spotify. Rows without one are scrobble or catalog tracks that `ft playlist create` looks up on Spotify.
+Read the default text output: one line per track, starting with the index's own track ID, which `ft playlist create` takes. It is compact enough to read whole. Pass `--json` only when you need a field the text leaves out, such as `spotify_url`. Tracks without a Spotify ID are scrobble or catalog tracks that `ft playlist create` looks up on Spotify.
 
 - `ft theme --vibe "<mood>" --sound "<genres and sound>" --word <w> --word <w> --tag <t> --exclude-tag <t> --source library --json`: the main tool for open themes. It fuses these searches into one ranked list:
   - `vibe`: the mood against track embeddings.
   - `artist-vibe`: the sound against artist embeddings, then the tracks of each matching artist that sit closest to the vibe. This finds the artists that fit a theme, so you do not have to guess them. It runs only when you pass `--sound`.
   - One search per word across title, lyrics and Genius notes. The three fields count as one signal, so a common word cannot outvote the vibe.
   - One search per tag.
-  Each row lists the searches that found it in `signals`, and `score` rises when several agree. Words accept a trailing `*`.
+  Each row lists the searches that found it in `signals` (`via` in text), and `score` rises when several agree. Covers and other versions of the same song are listed under the best ranked one as `versions` (`also` in text), so each song takes one place. Words accept a trailing `*`. One `ft theme` call with many `--word`s replaces a loop of `ft search title` calls.
 - `ft search title <words>`: word match in the title. Add `--substring` to match inside words ("love" also finds "lovely").
 - `ft search artist <words>`: word match in any artist name on the track.
 - `ft search album <words>`, `ft search lyrics <words>`, `ft search tag <words>`: the same match on album, lyrics or Last.fm tags (track and artist tags).
@@ -51,12 +51,13 @@ A search runs a quick sync first when the index is more than 12 hours old. Its p
    - era or year ("songs from the year you were born")
    - genre or mood that tags describe ("dreamy", "witch house", "christmas")
    - open vibe that needs judgment ("songs that evoke magic")
-2. Search:
+2. Expand the theme before you search. Themes are often puns or references, so write out what they could point to: people, places, events, band names and wordplay. "(Nobel) Peace (Prize)" points to Oslo, Dylan, Mandela, Gorbachev, a band called War, songs about peace and war, and the Norwegian "fred". Each becomes a `--word`, an artist search or part of the `--vibe`.
+3. Search:
    1. For literal themes, expand the word list before searching. "Color" means red, blue, green, black, white, gold, yellow, purple, pink, grey and gray, and Norwegian words too (rød, blå, grønn, svart, hvit, gul, rosa). The user listens to a lot of Norwegian music.
    2. For vibe themes, run `ft theme` with all of these:
       - `--vibe`: the mood in a sentence.
       - `--sound`: translate the theme into how it sounds, as genres, instruments and regions. "Autumn" becomes "indie folk, acoustic, singer-songwriter, chamber folk, nordic folk, dream pop". This is how the search finds the right artists. Do not search artist names one by one to cover them.
-      - 5 to 10 related `--word`s, in English and Norwegian. Avoid month and weekday names unless the theme is about them: Genius notes are full of release dates.
+      - 5 to 10 related `--word`s, in English and Norwegian. Avoid month and weekday names unless the theme is about them: Genius notes are full of release dates. Norwegian words also match English text ("fred" finds Genius notes about someone named Fred), so check why a Norwegian word matched.
       - `--exclude-tag` for genres that would clearly break the mood, if any.
       - Tags only as extra hints.
    3. If the sound covers several styles, run `ft search artist-vibe` once per style as well (for autumn: "nordic folk", "dream pop", "slowcore"), so one style does not crowd out the others.
@@ -69,13 +70,14 @@ A search runs a quick sync first when the index is more than 12 hours old. Its p
       A track that several signals agree on is a strong candidate. A track with one weak signal needs your own judgment.
    5. Fill in specific songs you know fit but that no signal found, through `ft search title` or `ft search artist`. Use this for a few known gaps, not as the main way to find artists. If you find yourself adding many artists by hand, the `--sound` description is too narrow: rewrite it and search again.
    6. Search in parallel where you can.
-3. Curate:
+4. Curate:
+   - Judge every candidate against the theme yourself, from what you know about the song and its `match` passage. A signal only says where to look.
    - Prefer tracks with `liked` or `playlist` in `sources`, or with many `plays`. The user actually listens to those.
-   - Drop weak literal matches whose word only technically fits. Drop duplicate versions of one song.
+   - Drop weak literal matches whose word only technically fits. When a song has `versions`, pick the one the user plays or keeps in the library.
    - Aim for 30 to 50 tracks unless the user asks for a different size.
    - Group the tracks into 3 to 6 sub-vibes. Order the groups so the playlist flows.
-4. Show the grouped list as "Title (Artist)". Name the notable songs you left out and why. Ask before you create anything.
-5. After the user approves, run `ft playlist create`. Use the theme as the name, with emojis if the theme had them. Put the theme text and the date in the description. Return the link. Also list the tracks the command reports as not on Spotify.
+5. Show the grouped list as "Title (Artist)". Name the notable songs you left out and why. Ask before you create anything.
+6. After the user approves, run `ft playlist create`. Use the theme as the name, with emojis if the theme had them. Put the theme text and the date in the description. Return the link. Also list the tracks the command reports as not on Spotify.
 
 ## When the index is wrong
 

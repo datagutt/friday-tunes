@@ -164,8 +164,16 @@ const themeCommand = Command.make(
         options.json
           ? JSON.stringify(rows, null, 2)
           : rows
-              .map(
-                (r) => `${formatRow(r)}\n        via ${r.signals.join(', ')}`,
+              .map((r) =>
+                [
+                  formatRow(r),
+                  `        via ${r.signals.join(', ')}`,
+                  ...(r.versions?.length
+                    ? [
+                        `        also ${r.versions.map((v) => `${v.artists} (${v.id})`).join(', ')}`,
+                      ]
+                    : []),
+                ].join('\n'),
               )
               .join('\n') || 'No matches.',
       );

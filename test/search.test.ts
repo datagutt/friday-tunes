@@ -275,3 +275,21 @@ test('theme search runs artist vibe only on a sound', () => {
   const vibeOnly = theme({ vector: vector(1) });
   expect(vibeOnly.flatMap((r) => r.signals)).not.toContain('artist-vibe');
 });
+
+test('theme search lists covers under the best ranked version', () => {
+  const cover = upsertTrack(db, {
+    title: 'Magic - Live',
+    artists: [{ name: 'Cover Band' }],
+  });
+  rebuildFts(db);
+  const rows = themeSearch(db, {
+    words: ['magic'],
+    tags: [],
+    source: 'any',
+    minPlays: 0,
+    limit: 10,
+  });
+  const magic = rows.filter((r) => r.title.startsWith('Magic'));
+  expect(magic.map((r) => r.title)).toEqual(['Magic']);
+  expect(magic[0]?.versions?.map((v) => v.id)).toEqual([cover]);
+});

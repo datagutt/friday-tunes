@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { matchKey, normalizeArtist, normalizeTitle } from '../src/normalize';
+import {
+  matchKey,
+  normalizeArtist,
+  normalizeTitle,
+  songKey,
+} from '../src/normalize';
 
 describe('normalizeTitle', () => {
   test.each([
@@ -48,4 +53,15 @@ test('matchKey joins artist and title', () => {
   expect(matchKey('David Bowie', 'Life On Mars? - 2015 Remaster')).toBe(
     'david bowie::life on mars',
   );
+});
+
+test('songKey groups covers, mixes and versions of one song', () => {
+  const key = songKey('Happy Xmas (War Is Over)');
+  expect(songKey('Happy Xmas (War Is Over) - Remastered 2010')).toBe(key);
+  expect(songKey('Happy Xmas (War is over) (2003 Mix)')).toBe(key);
+  expect(songKey('99 Luftballons - 99 Luftballons')).toBe(
+    songKey('99 Luftballons'),
+  );
+  expect(songKey('99 Red Balloons')).not.toBe(songKey('99 Luftballons'));
+  expect(songKey('(Untitled)')).toBe('untitled');
 });

@@ -91,7 +91,12 @@ export const scoreCase = (
   evalCase: EvalCase,
   rows: ReadonlyArray<ThemeRow>,
 ): CaseResult => {
-  const rank = new Map(rows.map((row, i) => [row.id, i + 1]));
+  // A cover or version grouped under a row counts as found at its rank.
+  const rank = new Map(
+    rows.flatMap((row, i) =>
+      [row, ...(row.versions ?? [])].map((r) => [r.id, i + 1] as const),
+    ),
+  );
   const tracks = evalCase.tracks.map((track) => ({
     track: label(track),
     id: resolveEvalTrack(db, track),

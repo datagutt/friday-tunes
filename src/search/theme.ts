@@ -1,6 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { Effect } from 'effect';
 import { embed } from '../embed/ollama';
+import { songKey } from '../normalize';
 import {
   type Mode,
   type Row,
@@ -59,10 +60,20 @@ export const themeVectors = (vibe?: string, sound?: string) =>
     };
   });
 
+export interface ThemeVersion {
+  readonly id: number;
+  readonly title: string;
+  readonly artists: string;
+  readonly plays: number;
+  readonly sources: ReadonlyArray<string>;
+}
+
 export interface ThemeRow extends Row {
   readonly score: number;
   /** Which searches found the track, such as "title:magic" or "vibe". */
   readonly signals: ReadonlyArray<string>;
+  /** Lower ranked covers and versions of the same song, if any. */
+  readonly versions?: ReadonlyArray<ThemeVersion>;
 }
 
 // No single signal is reliable: tags are sparse, lyrics and Genius notes
@@ -144,18 +155,32 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
     });
   }
 
-  return [...fused.values()]
+  // A song often appears as the original, covers and live versions. Only
+  // the best ranked one takes a place in the list; the others ride along,
+  // so a playlist does not get the same song three times but the choice
+  // stays visible.
+  const songs = new Map<string, { row: ThemeRow; versions: ThemeVersion[] }>();
+  const ranked = [...fused.values()]
     .map((entry) => ({
       ...entry,
       score: [...entry.groups.values()].reduce((sum, s) => sum + s, 0),
     }))
-    .sort((a, b) => b.score - a.score || b.row.plays - a.row.plays)
-    .slice(0, options.limit)
-    .map(
-      ({ row, score, signals }): ThemeRow => ({
-        ...row,
-        score: Number(score.toFixed(4)),
-        signals,
-      }),
-    );
+    .sort((a, b) => b.score - a.score || b.row.plays - a.row.plays);
+  for (const { row, score, signals } of ranked) {
+    const key = songKey(row.title);
+    const song = songs.get(key);
+    if (song) {
+      const { id, title, artists, plays, sources } = row;
+      song.versions.push({ id, title, artists, plays, sources });
+    } else if (songs.size < options.limit) {
+      songs.set(key, {
+        row: { ...row, score: Number(score.toFixed(4)), signals },
+        versions: [],
+      });
+    }
+  }
+  return [...songs.values()].map(
+    ({ row, versions }): ThemeRow =>
+      versions.length ? { ...row, versions } : row,
+  );
 };
