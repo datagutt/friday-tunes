@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { Args, Command, Options } from '@effect/cli';
 import { BunContext, BunRuntime } from '@effect/platform-bun';
 import {
@@ -7,10 +8,13 @@ import {
   Layer,
   Logger,
   Option,
+  Schema,
 } from 'effect';
+import { dataDir } from './config';
 import { Db, DbLive } from './db/db';
 import { embed } from './embed/ollama';
 import { install, runNow, uninstall } from './schedule';
+import { EvalFile, formatReport, runEval } from './search/eval';
 import {
   formatRow,
   MODES,
@@ -19,7 +23,7 @@ import {
   VIBE_MODES,
 } from './search/search';
 import { stats } from './search/stats';
-import { themeSearch } from './search/theme';
+import { themeSearch, themeVectors } from './search/theme';
 import { authorize } from './spotify/auth';
 import { Spotify } from './spotify/client';
 import { createPlaylist } from './spotify/playlist';
@@ -154,15 +158,8 @@ const themeCommand = Command.make(
       const db = yield* Db;
       const vibe = Option.getOrUndefined(options.vibe);
       const sound = Option.getOrUndefined(options.sound);
-      const queries = [vibe, sound].filter((q) => q !== undefined);
-      const vectors = queries.length ? yield* embed(queries) : [];
-      const rows = themeSearch(db, {
-        ...options,
-        vibe,
-        sound,
-        vector: vibe ? vectors[0] : undefined,
-        soundVector: sound ? vectors[vibe ? 1 : 0] : undefined,
-      });
+      const vectors = yield* themeVectors(vibe, sound);
+      const rows = themeSearch(db, { ...options, vibe, sound, ...vectors });
       yield* Console.log(
         options.json
           ? JSON.stringify(rows, null, 2)
@@ -176,6 +173,32 @@ const themeCommand = Command.make(
 ).pipe(
   Command.withDescription(
     'Combine vibe, artist vibe, word and tag searches into one ranked list.',
+  ),
+);
+
+const evalCommand = Command.make(
+  'eval',
+  {
+    file: Options.file('file').pipe(
+      Options.optional,
+      Options.withDescription(
+        'Answer keys to score. Defaults to data/eval.json.',
+      ),
+    ),
+  },
+  ({ file }) =>
+    Effect.gen(function* () {
+      const db = yield* Db;
+      const target = Option.isSome(file)
+        ? file.value
+        : path.join(yield* dataDir, 'eval.json');
+      const json = yield* Effect.tryPromise(() => Bun.file(target).json());
+      const cases = yield* Schema.decodeUnknown(EvalFile)(json);
+      yield* Console.log(formatReport(yield* runEval(db, cases)));
+    }),
+).pipe(
+  Command.withDescription(
+    'Score ft theme against past themes: how many approved tracks rank in the top 20 and 50.',
   ),
 );
 
@@ -256,6 +279,7 @@ const root = Command.make('ft').pipe(
     sync,
     searchCommand,
     themeCommand,
+    evalCommand,
     statsCommand,
     resolve,
     playlist,

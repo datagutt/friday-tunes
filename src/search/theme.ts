@@ -1,4 +1,6 @@
 import type { Database } from 'bun:sqlite';
+import { Effect } from 'effect';
+import { embed } from '../embed/ollama';
 import {
   type Mode,
   type Row,
@@ -45,6 +47,17 @@ export interface ThemeOptions {
   readonly minPlays: number;
   readonly limit: number;
 }
+
+// One embedding call for both queries.
+export const themeVectors = (vibe?: string, sound?: string) =>
+  Effect.gen(function* () {
+    const queries = [vibe, sound].filter((q) => q !== undefined);
+    const vectors = queries.length ? yield* embed(queries) : [];
+    return {
+      vector: vibe ? vectors[0] : undefined,
+      soundVector: sound ? vectors[vibe ? 1 : 0] : undefined,
+    };
+  });
 
 export interface ThemeRow extends Row {
   readonly score: number;

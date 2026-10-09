@@ -84,6 +84,28 @@ bun run typecheck
 bun run lint
 ```
 
+### Measuring search quality
+
+`ft theme` has no trained model, only signal weights and the text that gets embedded. Measure a change before keeping it. `ft eval` replays past themes from `data/eval.json` and reports how many of the tracks that made each final playlist rank in the top 20 and top 50. Each entry holds the theme, the `ft theme` arguments an agent would pass for it, and the approved tracks as Spotify links or title and artist pairs:
+
+```json
+[
+  {
+    "theme": "(Nobel) Peace (Prize)",
+    "vibe": "songs about war and peace, anti-war protest",
+    "sound": "60s folk rock, protest folk",
+    "words": ["war", "peace", "bomb", "fred"],
+    "source": "any",
+    "tracks": [
+      "https://open.spotify.com/track/...",
+      { "title": "99 Luftballons", "artist": "Nena" }
+    ]
+  }
+]
+```
+
+Tracks the index does not hold are listed as `not in index` and left out of the score, since no search could find them.
+
 ## License
 
 MIT. See `LICENSE`.
