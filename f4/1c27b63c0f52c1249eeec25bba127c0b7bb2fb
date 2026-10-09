@@ -1,0 +1,31 @@
+skill/SKILL.md
+  s_eef30f528cfe87::t_e7e32da8c02dec 19,26,54-55,60,73-74,76,79-80
+src/cli.ts
+  s_eef30f528cfe87::t_87b788bb622345 167-176
+src/search/eval.ts
+  s_eef30f528cfe87::t_d8229efc18a199 94-99
+src/search/theme.ts
+  s_eef30f528cfe87::t_ba8a5fd1115785 4,63-70,75-76,158-163,168-185
+test/normalize.test.ts
+  s_eef30f528cfe87::t_861609304d7883 2-7,57-67
+test/search.test.ts
+  s_eef30f528cfe87::t_1f374730afa709 278-295
+src/normalize.ts
+  s_eef30f528cfe87::t_3c62760f2cf0b9 31-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f41c27b63c0f52c1249eeec25bba127c0b7bb2fb",
+  "prompts": {},
+  "sessions": {
+    "s_eef30f528cfe87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9231dcf6-2331-4e93-ada5-7e6a8e43bf5a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <mail@datagutt.no>"
+    }
+  }
+}
