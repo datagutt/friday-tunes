@@ -34,6 +34,11 @@ export interface SearchOptions {
   readonly excludeTags?: ReadonlyArray<string>;
   /** Query embedding; required for the vibe modes. */
   readonly vector?: Float32Array;
+  /**
+   * Artist vibe: picks each artist's tracks by closeness to this embedding
+   * instead of by plays.
+   */
+  readonly trackVector?: Float32Array;
 }
 
 export const VIBE_MODES: ReadonlySet<Mode> = new Set(['vibe', 'artist-vibe']);
@@ -220,24 +225,43 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
     params.vec = options.vector;
     params.artists = VIBE_ARTISTS;
     params.per_artist = TRACKS_PER_ARTIST;
+    const filters = where.join(' and ');
+    const plays =
+      '(select count(*) from scrobbles sc where sc.track_id = t.id) desc';
+    // With a track vector, each artist contributes the tracks closest to
+    // it: an artist that sounds right for "peace" should bring its protest
+    // song, not its biggest hit. Without one, the user's most played tracks
+    // are the best guess. Distance is cosine, so 2 puts a track without an
+    // embedding last.
+    let trackOrder = plays;
+    let trackJoin = '';
+    if (options.trackVector) {
+      params.track_vec = options.trackVector;
+      trackOrder = `coalesce(vec_distance_cosine(vt.embedding, $track_vec), 2), ${plays}`;
+      trackJoin = 'left join vec_tracks vt on vt.track_id = t.id';
+    }
     // A few thousand artists scan exactly in well under a second. Artists
     // are ranked after the source filters, so one without matching tracks
     // drops out instead of taking a slot.
-    from = `(select track_id, distance from (
-               select ta.track_id, v.distance,
-                 row_number() over (partition by v.artist_id order by
-                   (select count(*) from scrobbles sc where sc.track_id = ta.track_id) desc
-                 ) as n,
-                 dense_rank() over (order by v.distance, v.artist_id) as artist_rank
-               from (select artist_id, vec_distance_cosine(embedding, $vec) as distance
-                     from vec_artists) v
-               join track_artists ta on ta.artist_id = v.artist_id and ta.position = 0
+    from = `(select track_id, distance, n from (
+               select ta.track_id, a.distance,
+                 row_number() over (partition by a.artist_id order by ${trackOrder}) as n
+               from (select v.artist_id, v.distance
+                     from (select artist_id, vec_distance_cosine(embedding, $vec) as distance
+                           from vec_artists) v
+                     where exists (select 1 from track_artists ta
+                                   join tracks t on t.id = ta.track_id
+                                   where ta.artist_id = v.artist_id and ta.position = 0
+                                     and ${filters})
+                     order by v.distance, v.artist_id limit $artists) a
+               join track_artists ta on ta.artist_id = a.artist_id and ta.position = 0
                join tracks t on t.id = ta.track_id
-               where ${where.join(' and ')})
-             where n <= $per_artist and artist_rank <= $artists) v
+               ${trackJoin}
+               where ${filters})
+             where n <= $per_artist) v
             join tracks t on t.id = v.track_id`;
     extra = ', round(v.distance, 4) as distance';
-    order = 'v.distance, plays desc';
+    order = 'v.distance, v.n';
   }
 
   return db

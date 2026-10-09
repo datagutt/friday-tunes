@@ -36,7 +36,7 @@ export interface ThemeOptions {
    * Genres and sound for the artist vibe search. Artist embeddings come
    * from tags, which name genres and instruments but rarely moods or
    * seasons, so "autumn" finds noise where "indie folk, acoustic" works.
-   * Without it, the artist search uses the vibe.
+   * Without it, the artist search does not run.
    */
   readonly sound?: string;
   readonly soundVector?: Float32Array;
@@ -84,7 +84,7 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
     mode: SignalMode,
     query: string,
     group: string,
-    vector?: Float32Array,
+    vectors: Pick<SearchOptions, 'vector' | 'trackVector'> = {},
   ) => {
     const { weight, depth } = SIGNALS[mode];
     const searchOptions: SearchOptions = {
@@ -95,21 +95,24 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
       minPlays: options.minPlays,
       substring: false,
       excludeTags: options.excludeTags,
-      vector,
+      ...vectors,
     };
     const signal = mode.endsWith('vibe') ? mode : `${mode}:${query}`;
     lists.push({ signal, group, weight, rows: search(db, searchOptions) });
   };
 
-  if (options.vector) run('vibe', options.vibe ?? '', 'vibe', options.vector);
-  const artistVector = options.soundVector ?? options.vector;
-  if (artistVector) {
-    run(
-      'artist-vibe',
-      options.sound ?? options.vibe ?? '',
-      'artist-vibe',
-      artistVector,
-    );
+  if (options.vector) {
+    run('vibe', options.vibe ?? '', 'vibe', { vector: options.vector });
+  }
+  // Artists are found by how they sound and contribute the tracks closest
+  // to the vibe. Without a sound there is nothing to match artists on:
+  // artist tags name genres, so a subject like "peace" lands on arbitrary
+  // artists.
+  if (options.soundVector) {
+    run('artist-vibe', options.sound ?? '', 'artist-vibe', {
+      vector: options.soundVector,
+      trackVector: options.vector,
+    });
   }
   for (const word of options.words) {
     for (const mode of ['title', 'lyrics', 'meaning'] as const) {

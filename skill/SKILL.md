@@ -20,7 +20,7 @@ Always pass `--json` when you read results. Every row has an `id`: the index's o
 
 - `ft theme --vibe "<mood>" --sound "<genres and sound>" --word <w> --word <w> --tag <t> --exclude-tag <t> --source library --json`: the main tool for open themes. It fuses these searches into one ranked list:
   - `vibe`: the mood against track embeddings.
-  - `artist-vibe`: the sound against artist embeddings, then each matching artist's most played tracks. This finds the artists that fit a theme, so you do not have to guess them.
+  - `artist-vibe`: the sound against artist embeddings, then the tracks of each matching artist that sit closest to the vibe. This finds the artists that fit a theme, so you do not have to guess them. It runs only when you pass `--sound`.
   - One search per word across title, lyrics and Genius notes. The three fields count as one signal, so a common word cannot outvote the vibe.
   - One search per tag.
   Each row lists the searches that found it in `signals`, and `score` rises when several agree. Words accept a trailing `*`.
@@ -65,7 +65,7 @@ A search runs a quick sync first when the index is more than 12 hours old. Its p
       - Lyrics and Genius notes cover most of the library, but a word in a lyric can be in passing.
       - Title words are literal ("Must Be Nice" matched "fairy tale" in its lyrics).
       - The track vibe search leans toward title words.
-      - `artist-vibe` picks an artist's most played tracks, not the ones that fit best. Check them.
+      - `artist-vibe` finds artists by genre, so a fitting artist can still bring tracks that miss the theme. Check them.
       A track that several signals agree on is a strong candidate. A track with one weak signal needs your own judgment.
    5. Fill in specific songs you know fit but that no signal found, through `ft search title` or `ft search artist`. Use this for a few known gaps, not as the main way to find artists. If you find yourself adding many artists by hand, the `--sound` description is too narrow: rewrite it and search again.
    6. Search in parallel where you can.

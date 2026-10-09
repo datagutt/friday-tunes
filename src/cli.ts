@@ -137,7 +137,7 @@ const themeCommand = Command.make(
     sound: Options.text('sound').pipe(
       Options.optional,
       Options.withDescription(
-        'Genres and sound for the artist embedding search, such as "indie folk, acoustic". Defaults to the vibe.',
+        'Genres and sound for the artist embedding search, such as "indie folk, acoustic". Without it, the artist search does not run.',
       ),
     ),
     words: Options.text('word').pipe(

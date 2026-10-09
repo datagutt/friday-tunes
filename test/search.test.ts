@@ -204,6 +204,33 @@ test('artist vibe ranks tracks by their artist and skips filtered artists', () =
   ).toEqual(['Magical Mystery Tour']);
 });
 
+test('artist vibe picks each artist tracks by plays or by a track vector', () => {
+  const vector = (hot: number) => {
+    const v = new Float32Array(1024);
+    v[hot] = 1;
+    return v;
+  };
+  const january = upsertTrack(db, {
+    title: 'January',
+    artists: [{ name: 'Pilot', spotifyId: 'pilot' }],
+  });
+  for (const ts of [10, 11, 12, 13, 14]) {
+    db.query('insert into scrobbles (played_at, track_id) values (?, ?)').run(
+      ts,
+      january,
+    );
+  }
+  db.query('insert into vec_tracks (track_id, embedding) values (?, ?)').run(
+    BigInt(january),
+    vector(3),
+  );
+  const pilot = (trackVector?: Float32Array) =>
+    titles({ mode: 'artist-vibe', vector: vector(0), trackVector }).slice(0, 2);
+  // January has the plays, Magic sits on the track vector.
+  expect(pilot()).toEqual(['January', 'Magic']);
+  expect(pilot(vector(0))).toEqual(['Magic', 'January']);
+});
+
 test('excluded tags match as phrases in track and artist tags', () => {
   db.query(
     "insert into tags (entity, entity_id, tag, weight) select 'artist', id, 'heavy metal', 50 from artists where name = 'The Beatles'",
@@ -221,25 +248,30 @@ test('excluded tags match as phrases in track and artist tags', () => {
   expect(years(['metal heavy'])).toHaveLength(3);
 });
 
-test('theme search runs artist vibe on the sound when one is given', () => {
+test('theme search runs artist vibe only on a sound', () => {
   const vector = (hot: number) => {
     const v = new Float32Array(1024);
     v[hot] = 1;
     return v;
   };
-  const rows = themeSearch(db, {
-    vector: vector(5),
-    soundVector: vector(1),
-    sound: 'dreamy',
-    words: [],
-    tags: [],
-    source: 'any',
-    minPlays: 0,
-    limit: 10,
-  });
-  // Desire's artist vector points at the sound, so its track leads the
-  // artist vibe list even though no track vector is near the vibe.
-  const spell = rows.find((r) => r.title === 'Under Your Spell');
-  expect(spell?.signals).toContain('artist-vibe');
+  const theme = (options: {
+    vector?: Float32Array;
+    soundVector?: Float32Array;
+  }) =>
+    themeSearch(db, {
+      ...options,
+      sound: options.soundVector ? 'dreamy' : undefined,
+      words: [],
+      tags: [],
+      source: 'any',
+      minPlays: 0,
+      limit: 10,
+    });
+  // Desire's artist vector points at the sound, so its track leads.
+  const rows = theme({ soundVector: vector(1) });
   expect(rows[0]?.title).toBe('Under Your Spell');
+  expect(rows[0]?.signals).toEqual(['artist-vibe']);
+  // A vibe alone does not reach artists.
+  const vibeOnly = theme({ vector: vector(1) });
+  expect(vibeOnly.flatMap((r) => r.signals)).not.toContain('artist-vibe');
 });
