@@ -23,7 +23,7 @@ Read the default text output: one line per track, starting with the index's own 
   - `artist-vibe`: the sound against artist embeddings, then the tracks of each matching artist that sit closest to the vibe. This finds the artists that fit a theme, so you do not have to guess them. It runs only when you pass `--sound`.
   - One search per word across title, lyrics and Genius notes. The three fields count as one signal, so a common word cannot outvote the vibe.
   - One search per tag.
-  Each row lists the searches that found it in `signals` (`via` in text), and `score` rises when several agree. Covers and other versions of the same song are listed under the best ranked one as `versions` (`also` in text), so each song takes one place. Words accept a trailing `*`. One `ft theme` call with many `--word`s replaces a loop of `ft search title` calls.
+  Each row lists the searches that found it in `signals` (`via` in text), and `score` rises when several agree. A small boost for plays and likes tips close calls toward songs the user knows. Covers and other versions of the same song are listed under the best ranked one as `versions` (`also` in text), so each song takes one place. Words accept a trailing `*`. One `ft theme` call with many `--word`s replaces a loop of `ft search title` calls.
 - `ft search title <words>`: word match in the title. Add `--substring` to match inside words ("love" also finds "lovely").
 - `ft search artist <words>`: word match in any artist name on the track.
 - `ft search album <words>`, `ft search lyrics <words>`, `ft search tag <words>`: the same match on album, lyrics or Last.fm tags (track and artist tags).

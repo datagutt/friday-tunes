@@ -4,7 +4,7 @@ import { openDatabase } from '../src/db/db';
 import { addSource, upsertTrack } from '../src/db/library';
 import { rebuildFts } from '../src/search/fts';
 import { ftsQuery, type SearchOptions, search } from '../src/search/search';
-import { themeSearch } from '../src/search/theme';
+import { listeningBoost, themeSearch } from '../src/search/theme';
 
 const SQLITE_LIB = '/opt/homebrew/opt/sqlite/lib/libsqlite3.dylib';
 let db: Database;
@@ -158,9 +158,12 @@ test('theme search ranks tracks that several signals agree on first', () => {
     'Under Your Spell',
     'Magic',
   ]);
-  const score = (title: string) =>
-    rows.find((r) => r.title === title)?.score ?? 0;
-  expect(score('Under Your Spell')).toBeCloseTo(2 * score('Magic'), 4);
+  // Scores are scaled by how much the user listens to each track.
+  const fit = (title: string) => {
+    const row = rows.find((r) => r.title === title);
+    return row ? row.score / listeningBoost(row) : 0;
+  };
+  expect(fit('Under Your Spell')).toBeCloseTo(2 * fit('Magic'), 3);
   expect(rows.find((r) => r.title === 'Magic')?.signals).toEqual([
     'title:magic',
     'lyrics:magic',
@@ -292,4 +295,14 @@ test('theme search lists covers under the best ranked version', () => {
   const magic = rows.filter((r) => r.title.startsWith('Magic'));
   expect(magic.map((r) => r.title)).toEqual(['Magic']);
   expect(magic[0]?.versions?.map((v) => v.id)).toEqual([cover]);
+});
+
+test('listening boost favors played and liked tracks', () => {
+  const boost = (plays: number, sources: string[] = ['playlist']) =>
+    listeningBoost({ plays, sources });
+  expect(boost(0)).toBeLessThan(1);
+  expect(boost(0, ['liked'])).toBeGreaterThan(1);
+  expect(boost(75)).toBeGreaterThan(boost(5));
+  // Plays tip close calls but never double a score.
+  expect(boost(500, ['liked'])).toBeLessThan(2);
 });

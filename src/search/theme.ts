@@ -30,6 +30,21 @@ const SIGNALS = {
 
 type SignalMode = keyof typeof SIGNALS;
 
+// A playlist is played to a room of coworkers, so a song the user knows
+// beats an equally fitting one they never listened to. The boost grows
+// with the log of plays and stays small next to the signals: 75 plays add
+// about a third, so fit still decides. A track that is neither liked nor
+// played usually came in with an imported playlist or an artist catalog.
+const PLAYS_BOOST = 0.08;
+const LIKED_BOOST = 0.1;
+const UNPLAYED = 0.9;
+
+export const listeningBoost = (row: Pick<Row, 'plays' | 'sources'>) => {
+  const liked = row.sources.includes('liked');
+  if (row.plays === 0 && !liked) return UNPLAYED;
+  return 1 + PLAYS_BOOST * Math.log1p(row.plays) + (liked ? LIKED_BOOST : 0);
+};
+
 export interface ThemeOptions {
   readonly vibe?: string;
   readonly vector?: Float32Array;
@@ -163,7 +178,9 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
   const ranked = [...fused.values()]
     .map((entry) => ({
       ...entry,
-      score: [...entry.groups.values()].reduce((sum, s) => sum + s, 0),
+      score:
+        [...entry.groups.values()].reduce((sum, s) => sum + s, 0) *
+        listeningBoost(entry.row),
     }))
     .sort((a, b) => b.score - a.score || b.row.plays - a.row.plays);
   for (const { row, score, signals } of ranked) {
