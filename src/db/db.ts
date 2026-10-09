@@ -52,10 +52,13 @@ export const openDatabase = (file: string, lib: string) => {
   sqliteVec.load(db);
   // A migration can recreate the FTS table, which holds no data of its own.
   // The rebuild commits together with the migration, so a failed rebuild
-  // rolls both back and the next open tries again.
+  // rolls both back and the next open tries again. The write lock is taken
+  // before the schema version is read: the hourly job and a search can
+  // open the database at the same moment, and both would otherwise run
+  // the same migration.
   db.transaction(() => {
     if (migrate(db) > 0) rebuildFts(db);
-  })();
+  }).immediate();
   return db;
 };
 

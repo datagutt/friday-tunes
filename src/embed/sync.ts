@@ -50,7 +50,8 @@ export const syncEmbeddings = Effect.gen(function* () {
            select tag, max(weight) as w from (
              select tag, weight from tags where entity = 'track' and entity_id = t.id
              union all
-             select g.tag, g.weight / 2 from tags g join track_artists ta
+             -- CROSS JOIN keeps SQLite from walking every artist tag per track.
+             select g.tag, g.weight / 2 from track_artists ta cross join tags g
                on g.entity = 'artist' and g.entity_id = ta.artist_id
              where ta.track_id = t.id and ta.position = 0)
            group by tag order by w desc limit 15)) as tags,

@@ -17,7 +17,9 @@ export const rebuildFts = (db: Database) =>
         (select group_concat(tag, ' | ') from (
           select tag from tags where entity = 'track' and entity_id = t.id
           union
-          select g.tag from tags g join track_artists ta
+          -- CROSS JOIN pins the order: left to itself, SQLite walks every
+          -- artist tag for each track, which turns seconds into minutes.
+          select g.tag from track_artists ta cross join tags g
             on g.entity = 'artist' and g.entity_id = ta.artist_id
           where ta.track_id = t.id)),
         l.plain,
