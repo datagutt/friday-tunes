@@ -1,0 +1,23 @@
+src/cli.ts
+  s_ae51475b555647::t_fda5e56d1e7fde 29-33,233-239,253-254,266-294,296-300
+src/spotify/playlist.ts
+  s_ae51475b555647::t_4de05ffeb59325 1,4,9-10,12-57,60,63,69,71-104,106-113,124-126,128-141
+test/playlist.test.ts
+  s_ae51475b555647::t_eb0ce99d8a625e 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "758f89ea9db7939184ea8b968a3ed493556e6663",
+  "prompts": {},
+  "sessions": {
+    "s_ae51475b555647": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa672cfe-310c-4da7-99ce-1a60b028df49",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <mail@datagutt.no>"
+    }
+  }
+}
