@@ -7,9 +7,6 @@ import { ENRICH_TRACKS } from '../lastfm/sync';
 // Enough of the song for its subject; long inputs mostly slow the model.
 const LYRICS_CHARS = 2500;
 const NOTES_CHARS = 1500;
-// The hourly job writes for this long, so the Mac is not busy all hour and
-// the weekly full sync finds the lock free.
-const RUN_SECONDS = 20 * 60;
 const EMBED_BATCH = 16;
 
 // The themes are written the way people phrase Friday themes, so a query
@@ -62,13 +59,15 @@ const hash = (text: string) => Bun.hash(text).toString(36);
 
 // Only songs with lyrics or Genius notes: from a title alone the model
 // guesses, and a confident wrong summary is worse than none. Library songs
-// go first, then the most played.
-export const syncSummaries = Effect.gen(function* () {
-  const db = yield* Db;
-  const { summaryModel } = yield* ollama;
-  const sources = db
-    .query<SummarySource, []>(
-      `select t.id, t.title, t.album, t.release_year as year, s.input_hash,
+// go first, then the most played. Without a time limit it runs until every
+// song is done.
+export const syncSummaries = (maxMinutes?: number) =>
+  Effect.gen(function* () {
+    const db = yield* Db;
+    const { summaryModel } = yield* ollama;
+    const sources = db
+      .query<SummarySource, []>(
+        `select t.id, t.title, t.album, t.release_year as year, s.input_hash,
          (select group_concat(name, ', ') from (
            select a.name from track_artists ta join artists a on a.id = ta.artist_id
            where ta.track_id = t.id order by ta.position)) as artists,
@@ -85,94 +84,100 @@ export const syncSummaries = Effect.gen(function* () {
        order by exists (select 1 from track_sources ts where ts.track_id = t.id
                         and ts.source in ('liked', 'playlist', 'top')) desc,
          (select count(*) from scrobbles sc where sc.track_id = t.id) desc`,
-    )
-    .all();
-  const pending = sources
-    .map((s) => {
-      const input = summaryInput(s);
-      return {
-        id: s.id,
-        input,
-        hash: hash(`${summaryModel}\n${SYSTEM}\n${input}`),
-        old: s.input_hash,
-      };
-    })
-    .filter((p) => p.hash !== p.old);
-  yield* Effect.logInfo(`summaries: ${pending.length} tracks to summarize`);
+      )
+      .all();
+    const pending = sources
+      .map((s) => {
+        const input = summaryInput(s);
+        return {
+          id: s.id,
+          input,
+          hash: hash(`${summaryModel}\n${SYSTEM}\n${input}`),
+          old: s.input_hash,
+        };
+      })
+      .filter((p) => p.hash !== p.old);
+    yield* Effect.logInfo(`summaries: ${pending.length} tracks to summarize`);
 
-  const save = db.query(
-    `insert into summaries (track_id, status, summary, themes, language, input_hash, created_at)
+    const save = db.query(
+      `insert into summaries (track_id, status, summary, themes, language, input_hash, created_at)
      values (?, ?, ?, ?, ?, ?, unixepoch())
      on conflict do update set status = excluded.status, summary = excluded.summary,
        themes = excluded.themes, language = excluded.language,
        input_hash = excluded.input_hash, created_at = excluded.created_at`,
-  );
-  const removeVector = db.query('delete from vec_summaries where track_id = ?');
-  const insertVector = db.query(
-    'insert into vec_summaries (track_id, embedding) values (?, ?)',
-  );
-
-  interface Hit {
-    readonly id: number;
-    readonly hash: string;
-    readonly summary: string;
-    readonly themes: string;
-    readonly language: string;
-  }
-  let hits: Hit[] = [];
-  const flush = Effect.gen(function* () {
-    if (hits.length === 0) return;
-    const vectors = yield* embed(
-      hits.map((h) => summaryEmbedText(h.summary, h.themes)),
     );
-    const batch = hits;
-    hits = [];
-    db.transaction(() => {
-      batch.forEach((h, i) => {
-        save.run(h.id, 'hit', h.summary, h.themes, h.language, h.hash);
-        removeVector.run(h.id);
-        insertVector.run(BigInt(h.id), vectors[i] ?? null);
-      });
-    })();
-  });
-
-  const start = yield* Clock.currentTimeMillis;
-  let done = 0;
-  let misses = 0;
-  for (const track of pending) {
-    if ((yield* Clock.currentTimeMillis) - start > RUN_SECONDS * 1000) break;
-    // Output that breaks the shape is a miss for this input, so the song is
-    // tried again only when its text, the prompt or the model changes.
-    // Ollama being down fails the step instead.
-    const result = yield* chatJson(Summary, SYSTEM, track.input).pipe(
-      Effect.map((s) => ({
-        summary: s.summary.trim(),
-        themes: s.themes
-          .map((t) => t.trim())
-          .filter(Boolean)
-          .join('\n'),
-        language: s.language.trim().toLowerCase(),
-      })),
-      Effect.catchTag('ParseError', () => Effect.succeed(undefined)),
+    const removeVector = db.query(
+      'delete from vec_summaries where track_id = ?',
     );
-    if (result?.summary && result.themes) {
-      hits.push({ id: track.id, hash: track.hash, ...result });
-      if (hits.length >= EMBED_BATCH) yield* flush;
-    } else {
-      save.run(track.id, 'miss', null, null, null, track.hash);
-      removeVector.run(track.id);
-      misses++;
+    const insertVector = db.query(
+      'insert into vec_summaries (track_id, embedding) values (?, ?)',
+    );
+
+    interface Hit {
+      readonly id: number;
+      readonly hash: string;
+      readonly summary: string;
+      readonly themes: string;
+      readonly language: string;
     }
-    done++;
-    if (done % 50 === 0) {
-      const seconds = ((yield* Clock.currentTimeMillis) - start) / 1000;
-      yield* Effect.logInfo(
-        `summaries: ${done}/${pending.length} (${(seconds / done).toFixed(1)} s per track)`,
+    let hits: Hit[] = [];
+    const flush = Effect.gen(function* () {
+      if (hits.length === 0) return;
+      const vectors = yield* embed(
+        hits.map((h) => summaryEmbedText(h.summary, h.themes)),
       );
+      const batch = hits;
+      hits = [];
+      db.transaction(() => {
+        batch.forEach((h, i) => {
+          save.run(h.id, 'hit', h.summary, h.themes, h.language, h.hash);
+          removeVector.run(h.id);
+          insertVector.run(BigInt(h.id), vectors[i] ?? null);
+        });
+      })();
+    });
+
+    const start = yield* Clock.currentTimeMillis;
+    let done = 0;
+    let misses = 0;
+    for (const track of pending) {
+      if (
+        maxMinutes !== undefined &&
+        (yield* Clock.currentTimeMillis) - start > maxMinutes * 60_000
+      )
+        break;
+      // Output that breaks the shape is a miss for this input, so the song is
+      // tried again only when its text, the prompt or the model changes.
+      // Ollama being down fails the step instead.
+      const result = yield* chatJson(Summary, SYSTEM, track.input).pipe(
+        Effect.map((s) => ({
+          summary: s.summary.trim(),
+          themes: s.themes
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .join('\n'),
+          language: s.language.trim().toLowerCase(),
+        })),
+        Effect.catchTag('ParseError', () => Effect.succeed(undefined)),
+      );
+      if (result?.summary && result.themes) {
+        hits.push({ id: track.id, hash: track.hash, ...result });
+        if (hits.length >= EMBED_BATCH) yield* flush;
+      } else {
+        save.run(track.id, 'miss', null, null, null, track.hash);
+        removeVector.run(track.id);
+        misses++;
+      }
+      done++;
+      if (done % 50 === 0) {
+        const seconds = ((yield* Clock.currentTimeMillis) - start) / 1000;
+        yield* Effect.logInfo(
+          `summaries: ${done}/${pending.length} (${(seconds / done).toFixed(1)} s per track)`,
+        );
+      }
     }
-  }
-  yield* flush;
-  yield* Effect.logInfo(
-    `summaries: ${done} written, ${misses} unusable, ${pending.length - done} left for the next run`,
-  );
-});
+    yield* flush;
+    yield* Effect.logInfo(
+      `summaries: ${done} written, ${misses} unusable, ${pending.length - done} left for the next run`,
+    );
+  });

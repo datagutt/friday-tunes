@@ -21,10 +21,20 @@ import {
 } from './spotify/sync';
 import { syncSummaries } from './summary/sync';
 
+export interface SyncOptions {
+  readonly full: boolean;
+  readonly steps: ReadonlyArray<Step>;
+  /**
+   * Stop writing summaries after this long. Scheduled runs set it so the
+   * Mac is not busy for hours; a run started by hand goes until done.
+   */
+  readonly summaryMinutes?: number;
+}
+
 interface StepDef {
   readonly quick: boolean;
   readonly run: (
-    full: boolean,
+    options: SyncOptions,
   ) => Effect.Effect<void, { readonly message: string }, Db>;
 }
 
@@ -33,14 +43,14 @@ interface StepDef {
 const STEP_DEFS = {
   spotify: {
     quick: true,
-    run: (full: boolean) =>
+    run: ({ full }) =>
       Effect.all([syncLiked(full), syncPlaylists(full), syncTop, syncRecent], {
         discard: true,
       }).pipe(Effect.provide(Spotify.Default)),
   },
   lastfm: {
     quick: true,
-    run: (_full: boolean) =>
+    run: () =>
       Effect.all([syncScrobbles, syncTopArtists], { discard: true }).pipe(
         Effect.provide(LastFm.Default),
       ),
@@ -49,7 +59,7 @@ const STEP_DEFS = {
     quick: false,
     // The followed list comes from Spotify but only refines which artists
     // get a catalog, so a Spotify outage must not stop the Last.fm part.
-    run: (_full: boolean) =>
+    run: () =>
       syncFollowed.pipe(
         Effect.provide(Spotify.Default),
         Effect.catchAll((e) =>
@@ -62,33 +72,31 @@ const STEP_DEFS = {
   },
   discography: {
     quick: false,
-    run: (_full: boolean) =>
-      syncDiscographies.pipe(Effect.provide(Spotify.Default)),
+    run: () => syncDiscographies.pipe(Effect.provide(Spotify.Default)),
   },
   tags: {
     quick: false,
-    run: (_full: boolean) => syncTags.pipe(Effect.provide(LastFm.Default)),
+    run: () => syncTags.pipe(Effect.provide(LastFm.Default)),
   },
   bios: {
     quick: false,
-    run: (_full: boolean) =>
-      syncLastFmBios.pipe(Effect.provide(LastFm.Default)),
+    run: () => syncLastFmBios.pipe(Effect.provide(LastFm.Default)),
   },
   lyrics: {
     quick: false,
-    run: (_full: boolean) => Effect.scoped(syncLyrics),
+    run: () => Effect.scoped(syncLyrics),
   },
   genius: {
     quick: false,
-    run: (_full: boolean) => syncGenius,
+    run: () => syncGenius,
   },
   summary: {
     quick: false,
-    run: (_full: boolean) => syncSummaries,
+    run: ({ summaryMinutes }) => syncSummaries(summaryMinutes),
   },
   embed: {
     quick: false,
-    run: (_full: boolean) => syncEmbeddings,
+    run: () => syncEmbeddings,
   },
 } satisfies Record<string, StepDef>;
 
@@ -111,10 +119,7 @@ const now = () => Math.floor(Date.now() / 1000);
 
 // A failing step does not stop the others: a missing Last.fm key should not
 // block a Spotify sync.
-export const runSync = (options: {
-  readonly full: boolean;
-  readonly steps: ReadonlyArray<Step>;
-}) =>
+export const runSync = (options: SyncOptions) =>
   Effect.gen(function* () {
     yield* syncLock;
     const db = yield* Db;
@@ -127,7 +132,7 @@ export const runSync = (options: {
     for (const step of steps) {
       yield* Effect.logInfo(`sync ${step}${options.full ? ' (full)' : ''}`);
       const def: StepDef = STEP_DEFS[step];
-      const result = yield* Effect.either(def.run(options.full));
+      const result = yield* Effect.either(def.run(options));
       if (Either.isLeft(result)) {
         failed.push(step);
         yield* Effect.logError(`sync ${step} failed: ${result.left.message}`);

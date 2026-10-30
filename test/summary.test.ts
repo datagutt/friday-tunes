@@ -54,9 +54,9 @@ test('summarizes songs with text, records unusable replies, and skips done songs
       track('Garbled', 'Someone', 'La la la');
       track('No Text', 'Nobody');
 
-      yield* syncSummaries;
+      yield* syncSummaries();
       // Nothing changed, so a second run asks the model nothing.
-      yield* syncSummaries;
+      yield* syncSummaries();
       rebuildFts(db);
       return {
         rows: db

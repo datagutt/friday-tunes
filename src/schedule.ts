@@ -16,7 +16,7 @@ const JOBS: ReadonlyArray<Job> = [
     // The work theme drops Fridays at 15:00; a full sync at 13:00 leaves
     // time for slow enrichment to finish first.
     label: 'com.github.datagutt.friday-tunes',
-    args: ['sync', '--full'],
+    args: ['sync', '--full', '--summary-minutes', '20'],
     timing: `<key>StartCalendarInterval</key>
   <dict>
     <key>Weekday</key>
@@ -26,7 +26,7 @@ const JOBS: ReadonlyArray<Job> = [
     <key>Minute</key>
     <integer>0</integer>
   </dict>`,
-    summary: '`ft sync --full` on Fridays at 13:00',
+    summary: '`ft sync --full --summary-minutes 20` on Fridays at 13:00',
   },
   {
     // Each run spends a small call budget on Spotify discographies and
@@ -41,11 +41,13 @@ const JOBS: ReadonlyArray<Job> = [
       'genius',
       '--step',
       'summary',
+      '--summary-minutes',
+      '20',
     ],
     timing: `<key>StartInterval</key>
   <integer>3600</integer>`,
     summary:
-      '`ft sync --step discography --step genius --step summary` every hour',
+      '`ft sync --step discography --step genius --step summary --summary-minutes 20` every hour',
   },
 ];
 

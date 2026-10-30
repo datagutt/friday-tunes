@@ -49,9 +49,19 @@ const sync = Command.make(
       Options.repeated,
       Options.withDescription('Run only these steps. Repeat for several.'),
     ),
+    summaryMinutes: Options.integer('summary-minutes').pipe(
+      Options.optional,
+      Options.withDescription(
+        'Stop writing summaries after this many minutes. Without it, the summary step runs until every song is done.',
+      ),
+    ),
   },
-  ({ full, steps }) =>
-    runSync({ full, steps }).pipe(
+  ({ full, steps, summaryMinutes }) =>
+    runSync({
+      full,
+      steps,
+      summaryMinutes: Option.getOrUndefined(summaryMinutes),
+    }).pipe(
       // Each failed step is already logged with its reason.
       // The hourly job often starts while another sync runs; that is a skip.
       Effect.catchTag('SyncBusy', (e) =>

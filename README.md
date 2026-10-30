@@ -73,8 +73,9 @@ A search runs a quick sync first when the index is more than 12 hours old. Pass 
 - `ft sync` runs the quick steps: `spotify` and `lastfm`.
 - `ft sync --full` also runs `catalog`, `discography`, `tags`, `bios`, `lyrics`, `genius`, `summary` and `embed`.
 - `ft sync --step <name>` runs one step. Repeat `--step` for several.
+- `--summary-minutes <n>` stops the `summary` step after n minutes. Without it, the step runs until it is done.
 
-`ft schedule install` adds two launchd jobs. A full sync runs on Fridays at 13:00. A trickle job runs the `discography`, `genius` and `summary` steps every hour; each run spends a small call budget, so they fill in over days without tripping rate limits. The `genius` step spends its budget on songs first and artist bios after. The `summary` step writes for 20 minutes per run, library songs first. Run `ft sync --step summary` by hand to speed up the first pass. Logs go to `data/launchd.log`. If the Mac sleeps through a run, launchd starts it on wake. If the Mac is off, the run is skipped.
+`ft schedule install` adds two launchd jobs. A full sync runs on Fridays at 13:00. A trickle job runs the `discography`, `genius` and `summary` steps every hour; each run spends a small call budget, so they fill in over days without tripping rate limits. The `genius` step spends its budget on songs first and artist bios after. Both jobs pass `--summary-minutes 20`, so the `summary` step writes for 20 minutes per run, library songs first, and the Mac is not busy for hours. `ft sync --step summary` started by hand has no limit and runs until every song is summarized, which takes hours on the first pass. Logs go to `data/launchd.log`. If the Mac sleeps through a run, launchd starts it on wake. If the Mac is off, the run is skipped.
 
 ## Things that will surprise you
 
