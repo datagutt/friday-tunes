@@ -249,12 +249,13 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
     // it: an artist that sounds right for "peace" should bring its protest
     // song, not its biggest hit. Without one, the user's most played tracks
     // are the best guess. Distance is cosine, so 2 puts a track without an
-    // embedding last.
+    // embedding last; sqlite-vec errors on a null vector instead of
+    // returning null, hence the case.
     let trackOrder = plays;
     let trackJoin = '';
     if (options.trackVector) {
       params.track_vec = options.trackVector;
-      trackOrder = `coalesce(vec_distance_cosine(vt.embedding, $track_vec), 2), ${plays}`;
+      trackOrder = `case when vt.embedding is null then 2 else vec_distance_cosine(vt.embedding, $track_vec) end, ${plays}`;
       trackJoin = 'left join vec_tracks vt on vt.track_id = t.id';
     }
     // A few thousand artists scan exactly in well under a second. Artists
