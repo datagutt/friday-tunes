@@ -26,8 +26,11 @@ import { stats } from './search/stats';
 import { themeSearch, themeVectors } from './search/theme';
 import { authorize } from './spotify/auth';
 import { Spotify } from './spotify/client';
-import { createPlaylist } from './spotify/playlist';
-import { resolveTracks } from './spotify/resolve';
+import {
+  changePlaylist,
+  createPlaylist,
+  type Missing,
+} from './spotify/playlist';
 import { isStale, runSync, STEPS } from './sync';
 
 const auth = Command.make('auth', {}, () =>
@@ -227,18 +230,13 @@ const statsCommand = Command.make('stats', {}, () =>
 
 const trackIds = Args.integer({ name: 'track-id' }).pipe(Args.atLeast(1));
 
-const resolve = Command.make('resolve', { ids: trackIds }, ({ ids }) =>
-  resolveTracks(ids).pipe(
-    Effect.flatMap((resolved) =>
-      Console.log(JSON.stringify(Object.fromEntries(resolved), null, 2)),
-    ),
-    Effect.provide(Spotify.Default),
-  ),
-).pipe(
-  Command.withDescription(
-    'Find Spotify IDs for indexed tracks that have none (scrobble-only tracks).',
-  ),
-);
+const formatMissing = (missing: ReadonlyArray<Missing>) =>
+  missing.map((m) => {
+    const others = m.alternatives.length
+      ? `; other versions: ${m.alternatives.map((a) => `${a.artists} (${a.id})`).join(', ')}`
+      : '';
+    return `Not on Spotify: ${m.title} - ${m.artists} (${m.id})${others}`;
+  });
 
 const playlistCreate = Command.make(
   'create',
@@ -252,10 +250,8 @@ const playlistCreate = Command.make(
       Effect.flatMap((result) =>
         Console.log(
           [
-            `Created ${result.url} with ${result.added} tracks.`,
-            ...(result.missing.length
-              ? [`Not on Spotify: ${result.missing.join('; ')}`]
-              : []),
+            `Created ${result.url} with ${result.count} tracks.`,
+            ...formatMissing(result.missing),
           ].join('\n'),
         ),
       ),
@@ -267,8 +263,41 @@ const playlistCreate = Command.make(
   ),
 );
 
+const playlistChange = (action: 'add' | 'remove') =>
+  Command.make(
+    action,
+    {
+      playlist: Args.text({ name: 'playlist' }).pipe(
+        Args.withDescription('Playlist link, URI or ID.'),
+      ),
+      ids: trackIds,
+    },
+    ({ playlist, ids }) =>
+      changePlaylist({ playlist, action, trackIds: ids }).pipe(
+        Effect.flatMap((result) =>
+          Console.log(
+            [
+              `${action === 'add' ? 'Added' : 'Removed'} ${result.count} tracks ${action === 'add' ? 'to' : 'from'} ${result.url}.`,
+              ...formatMissing(result.missing),
+            ].join('\n'),
+          ),
+        ),
+        Effect.provide(Spotify.Default),
+      ),
+  ).pipe(
+    Command.withDescription(
+      action === 'add'
+        ? 'Add indexed track IDs to the end of a playlist.'
+        : 'Remove indexed track IDs from a playlist.',
+    ),
+  );
+
 const playlist = Command.make('playlist').pipe(
-  Command.withSubcommands([playlistCreate]),
+  Command.withSubcommands([
+    playlistCreate,
+    playlistChange('add'),
+    playlistChange('remove'),
+  ]),
 );
 
 const scheduleCommand = (
@@ -300,7 +329,6 @@ const root = Command.make('ft').pipe(
     themeCommand,
     evalCommand,
     statsCommand,
-    resolve,
     playlist,
     schedule,
   ]),
