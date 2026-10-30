@@ -1,0 +1,29 @@
+README.md
+  s_ae51475b555647::t_1a2a43ba3c5bcf 76,78
+src/cli.ts
+  s_ae51475b555647::t_73624c7cedb5b1 52-57,59-64
+src/schedule.ts
+  s_ae51475b555647::t_aa36ec661676fb 19,29,44-45,50
+src/summary/sync.ts
+  s_ae51475b555647::t_0fae8d6d2d9b7d 62-70,87-100,102-103,109-110,112-121,123-127,129-177,179-183
+src/sync.ts
+  s_ae51475b555647::t_4ed48df4582682 24-33,37,46,53,62,75,79,83,87,91,95,99,122,135
+test/summary.test.ts
+  s_ae51475b555647::t_7cd733d7128e02 57,59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8ce1bbbdefd3d109a08caef36dfd061a5e9b53c0",
+  "prompts": {},
+  "sessions": {
+    "s_ae51475b555647": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa672cfe-310c-4da7-99ce-1a60b028df49",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <mail@datagutt.no>"
+    }
+  }
+}
