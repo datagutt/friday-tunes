@@ -1,0 +1,19 @@
+src/search/stats.ts
+  s_ae51475b555647::t_26663ea7580a76 45-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ebce91f10fccb60f5ade9faea27b9b03bd441549",
+  "prompts": {},
+  "sessions": {
+    "s_ae51475b555647": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa672cfe-310c-4da7-99ce-1a60b028df49",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <mail@datagutt.no>"
+    }
+  }
+}
