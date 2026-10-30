@@ -42,7 +42,10 @@ export const stats = (db: Database) => {
     `artists:     ${artists}`,
     `playlists:   ${playlists.map((p) => `${p.n} ${p.status}`).join(', ') || '0'}`,
     `scrobbles:   ${one(db, 'select count(*) as n from scrobbles')}`,
-    `tagged:      ${pct(one(db, "select count(distinct entity_id) as n from tags where entity = 'track'"))}`,
+    // Last.fm has track tags for few songs; tag searches mostly match
+    // through the artist's tags, which is the number that matters.
+    `tagged:      ${pct(one(db, "select count(*) as n from tracks t where exists (select 1 from track_artists ta join tags g on g.entity = 'artist' and g.entity_id = ta.artist_id where ta.track_id = t.id)"))} via artist, ${pct(one(db, "select count(distinct entity_id) as n from tags where entity = 'track'"))} own`,
+    `explicit known: ${pct(one(db, 'select count(*) as n from tracks where explicit is not null'))}`,
     `lyrics:      ${pct(one(db, "select count(*) as n from lyrics where status = 'hit'"))}`,
     `summaries:   ${pct(one(db, "select count(*) as n from summaries where status = 'hit'"))}`,
     `embedded:    ${pct(one(db, 'select count(*) as n from vec_tracks'))}`,
