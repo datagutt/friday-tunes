@@ -59,24 +59,87 @@ export interface ThemeOptions {
    */
   readonly sound?: string;
   readonly soundVector?: Float32Array;
+  /**
+   * Neighbouring themes to keep out, such as "christmas" for Halloween.
+   * Embeddings place holidays, seasons and moods close together, so a
+   * Halloween vibe also finds Christmas songs that mention ghost stories.
+   * A track closer to any of these than to the vibe is dropped.
+   */
+  readonly avoid?: ReadonlyArray<string>;
+  readonly avoidVectors?: ReadonlyArray<Float32Array>;
   readonly words: ReadonlyArray<string>;
   readonly tags: ReadonlyArray<string>;
   readonly excludeTags?: ReadonlyArray<string>;
+  readonly clean?: boolean;
   readonly source: SourceFilter;
   readonly minPlays: number;
   readonly limit: number;
 }
 
-// One embedding call for both queries.
-export const themeVectors = (vibe?: string, sound?: string) =>
+// One embedding call for all queries.
+export const themeVectors = (
+  vibe?: string,
+  sound?: string,
+  avoid: ReadonlyArray<string> = [],
+) =>
   Effect.gen(function* () {
     const queries = [vibe, sound].filter((q) => q !== undefined);
-    const vectors = queries.length ? yield* embed(queries) : [];
+    const vectors =
+      queries.length + avoid.length ? yield* embed([...queries, ...avoid]) : [];
     return {
       vector: vibe ? vectors[0] : undefined,
       soundVector: sound ? vectors[vibe ? 1 : 0] : undefined,
+      avoidVectors: vectors.slice(queries.length),
     };
   });
+
+const cosineDistance = (a: Float32Array, b: Float32Array) => {
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    dot += x * y;
+    na += x * x;
+    nb += y * y;
+  }
+  return 1 - dot / Math.sqrt(na * nb);
+};
+
+// A track is judged in both embedding spaces it has: its own text and its
+// summary. Either one leaning toward an avoided theme is enough, because
+// the summary often names the holiday where the lyrics do not.
+const leansAway = (
+  db: Database,
+  ids: ReadonlyArray<number>,
+  vibe: Float32Array,
+  avoid: ReadonlyArray<Float32Array>,
+) => {
+  const lookups = ['vec_tracks', 'vec_summaries'].map((table) =>
+    db.query<{ embedding: Uint8Array }, [number]>(
+      `select embedding from ${table} where track_id = ?`,
+    ),
+  );
+  const away = new Set<number>();
+  for (const id of ids) {
+    for (const lookup of lookups) {
+      const blob = lookup.get(id)?.embedding;
+      if (!blob) continue;
+      const embedding = new Float32Array(
+        blob.buffer,
+        blob.byteOffset,
+        blob.byteLength / 4,
+      );
+      const toVibe = cosineDistance(embedding, vibe);
+      if (avoid.some((a) => cosineDistance(embedding, a) < toVibe)) {
+        away.add(id);
+        break;
+      }
+    }
+  }
+  return away;
+};
 
 export interface ThemeVersion {
   readonly id: number;
@@ -103,6 +166,9 @@ export interface ThemeRow extends Row {
 // of them counts. Otherwise a song that mentions "rain" in passing outranks
 // one the vibe search found.
 export const themeSearch = (db: Database, options: ThemeOptions) => {
+  const avoidVectors = options.avoidVectors ?? [];
+  if (avoidVectors.length > 0 && !options.vector)
+    throw new Error('Avoiding a theme needs a vibe to compare against');
   const lists: Array<{
     signal: string;
     group: string;
@@ -124,6 +190,7 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
       minPlays: options.minPlays,
       substring: false,
       excludeTags: options.excludeTags,
+      clean: options.clean,
       ...vectors,
     };
     const signal = mode.endsWith('vibe') ? mode : `${mode}:${query}`;
@@ -181,8 +248,13 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
   // the best ranked one takes a place in the list; the others ride along,
   // so a playlist does not get the same song three times but the choice
   // stays visible.
+  const away =
+    options.vector && avoidVectors.length > 0
+      ? leansAway(db, [...fused.keys()], options.vector, avoidVectors)
+      : new Set<number>();
   const songs = new Map<string, { row: ThemeRow; versions: ThemeVersion[] }>();
   const ranked = [...fused.values()]
+    .filter((entry) => !away.has(entry.row.id))
     .map((entry) => ({
       ...entry,
       score:

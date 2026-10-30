@@ -139,6 +139,12 @@ const themeCommand = Command.make(
         'Describe the mood for the track embedding search.',
       ),
     ),
+    avoid: Options.text('avoid').pipe(
+      Options.repeated,
+      Options.withDescription(
+        'A neighbouring theme to keep out, such as "christmas" for Halloween. Drops tracks closer to it than to the vibe. Repeat for several.',
+      ),
+    ),
     sound: Options.text('sound').pipe(
       Options.optional,
       Options.withDescription(
@@ -163,7 +169,7 @@ const themeCommand = Command.make(
       const db = yield* Db;
       const vibe = Option.getOrUndefined(options.vibe);
       const sound = Option.getOrUndefined(options.sound);
-      const vectors = yield* themeVectors(vibe, sound);
+      const vectors = yield* themeVectors(vibe, sound, options.avoid);
       const rows = themeSearch(db, { ...options, vibe, sound, ...vectors });
       yield* Console.log(
         options.json

@@ -326,3 +326,37 @@ test('clean leaves out explicit tracks and keeps unknown ones', () => {
     db.run('update tracks set explicit = null');
   }
 });
+
+test('theme search drops tracks closer to an avoided theme than to the vibe', () => {
+  const vector = (hot: number) => {
+    const v = new Float32Array(1024);
+    v[hot] = 1;
+    return v;
+  };
+  const theme = (avoidVectors?: Float32Array[]) =>
+    themeSearch(db, {
+      vector: vector(0),
+      avoidVectors,
+      words: ['spell'],
+      tags: [],
+      source: 'any',
+      minPlays: 0,
+      limit: 10,
+    }).map((r) => r.title);
+  // Under Your Spell sits on the avoided axis, so even its title match
+  // does not keep it. Magical Mystery Tour leans toward the vibe.
+  expect(theme()).toContain('Under Your Spell');
+  const avoided = theme([vector(1)]);
+  expect(avoided).not.toContain('Under Your Spell');
+  expect(avoided).toContain('Magical Mystery Tour');
+  expect(() =>
+    themeSearch(db, {
+      avoidVectors: [vector(1)],
+      words: [],
+      tags: [],
+      source: 'any',
+      minPlays: 0,
+      limit: 10,
+    }),
+  ).toThrow();
+});
