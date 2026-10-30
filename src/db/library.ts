@@ -23,6 +23,7 @@ export interface TrackInput {
   readonly albumSpotifyId?: string | null;
   readonly releaseYear?: number | null;
   readonly durationMs?: number | null;
+  readonly explicit?: boolean | null;
 }
 
 export const upsertArtist = (db: Database, artist: ArtistInput): number => {
@@ -91,6 +92,7 @@ export const upsertTrack = (db: Database, track: TrackInput): number => {
     album_spotify_id: track.albumSpotifyId ?? null,
     release_year: track.releaseYear ?? null,
     duration_ms: track.durationMs ?? null,
+    explicit: track.explicit == null ? null : Number(track.explicit),
   };
 
   let id = findTrack(db, key, track.spotifyId);
@@ -99,9 +101,9 @@ export const upsertTrack = (db: Database, track: TrackInput): number => {
       db
         .query(
           `insert into tracks (match_key, spotify_id, isrc, title, title_norm,
-             album, album_spotify_id, release_year, duration_ms)
+             album, album_spotify_id, release_year, duration_ms, explicit)
            values ($key, $spotify_id, $isrc, $title, $title_norm, $album,
-             $album_spotify_id, $release_year, $duration_ms)`,
+             $album_spotify_id, $release_year, $duration_ms, $explicit)`,
         )
         .run(values).lastInsertRowid,
     );
@@ -117,6 +119,8 @@ export const upsertTrack = (db: Database, track: TrackInput): number => {
          release_year = coalesce(release_year, $release_year),
          duration_ms = coalesce(duration_ms, $duration_ms),
          isrc = coalesce(isrc, $isrc),
+         explicit = case when spotify_id is null or spotify_id = $spotify_id
+           then coalesce($explicit, explicit) else explicit end,
          spotify_id = coalesce(spotify_id, $spotify_id),
          resolve_status = 'hit'
        where id = $id`,

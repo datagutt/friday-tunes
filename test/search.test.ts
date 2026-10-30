@@ -312,3 +312,17 @@ test('plain searches rank played songs above unplayed library songs', () => {
     'Under Your Spell',
   );
 });
+
+test('clean leaves out explicit tracks and keeps unknown ones', () => {
+  db.run("update tracks set explicit = 1 where title = 'Under Your Spell'");
+  db.run("update tracks set explicit = 0 where title = 'Magic'");
+  try {
+    const [row] = search(db, { ...defaults, query: 'spell' });
+    expect(row?.explicit).toBe(true);
+    expect(
+      titles({ mode: 'year', query: '1960-2010', clean: true }).sort(),
+    ).toEqual(['Magic', 'Magical Mystery Tour']);
+  } finally {
+    db.run('update tracks set explicit = null');
+  }
+});

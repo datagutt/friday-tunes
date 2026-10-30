@@ -26,6 +26,7 @@ export const Track = Schema.Struct({
   id: Schema.NullOr(Schema.String),
   name: Schema.String,
   duration_ms: Schema.Number,
+  explicit: Schema.optional(Schema.Boolean),
   artists: Schema.Array(ArtistRef),
   album: Schema.optional(AlbumRef),
   external_ids: Schema.optional(

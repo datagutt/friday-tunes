@@ -88,6 +88,11 @@ const commonSearchOptions = {
       'Leave out tracks whose own or artist tags match. Repeat for several.',
     ),
   ),
+  clean: Options.boolean('clean').pipe(
+    Options.withDescription(
+      'Leave out songs Spotify marks explicit. Songs without a Spotify version are kept.',
+    ),
+  ),
   json: Options.boolean('json'),
   noSync: Options.boolean('no-sync').pipe(
     Options.withDescription('Skip the automatic quick sync of a stale index.'),

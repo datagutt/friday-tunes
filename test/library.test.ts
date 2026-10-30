@@ -100,3 +100,32 @@ test('sync state round-trips', () => {
   setState(db, 'cursor', 43);
   expect(getState(db, 'cursor')).toBe('43');
 });
+
+test('the explicit flag follows the preferred Spotify version', () => {
+  const id = upsertTrack(db, {
+    title: 'Pet Sematary',
+    artists: [{ name: 'Ramones' }],
+  });
+  const explicit = () =>
+    db
+      .query<{ explicit: number | null }, [number]>(
+        'select explicit from tracks where id = ?',
+      )
+      .get(id)?.explicit;
+  expect(explicit()).toBeNull();
+  upsertTrack(db, {
+    title: 'Pet Sematary',
+    artists: [{ name: 'Ramones' }],
+    spotifyId: 'first',
+    explicit: false,
+  });
+  expect(explicit()).toBe(0);
+  // A second Spotify version of the same song does not overwrite it.
+  upsertTrack(db, {
+    title: 'Pet Sematary - Remastered',
+    artists: [{ name: 'Ramones' }],
+    spotifyId: 'second',
+    explicit: true,
+  });
+  expect(explicit()).toBe(0);
+});

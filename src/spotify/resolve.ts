@@ -90,8 +90,14 @@ export const resolveTracks = (trackIds: ReadonlyArray<number>) =>
         if (match) {
           db.query(
             `update tracks set spotify_id = ?, duration_ms = coalesce(duration_ms, ?),
-               resolve_status = 'hit', resolved_at = ? where id = ?`,
-          ).run(match.id, match.duration_ms, now, id);
+               explicit = ?, resolve_status = 'hit', resolved_at = ? where id = ?`,
+          ).run(
+            match.id,
+            match.duration_ms,
+            match.explicit == null ? null : Number(match.explicit),
+            now,
+            id,
+          );
           db.query(
             'insert or ignore into track_spotify_ids (spotify_id, track_id) values (?, ?)',
           ).run(match.id, id);

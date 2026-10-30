@@ -34,6 +34,8 @@ export interface SearchOptions {
   readonly substring: boolean;
   /** Tracks whose own or artist tags match any of these are left out. */
   readonly excludeTags?: ReadonlyArray<string>;
+  /** Leave out tracks Spotify marks explicit. Unknown ones stay. */
+  readonly clean?: boolean;
   /** Query embedding; required for the vibe modes. */
   readonly vector?: Float32Array;
   /**
@@ -64,6 +66,7 @@ export interface Row {
   readonly spotify_id: string | null;
   readonly spotify_url: string | null;
   readonly plays: number;
+  readonly explicit: boolean | null;
   readonly sources: ReadonlyArray<string>;
   readonly tags: ReadonlyArray<string>;
   /** What the song is about, from the summary step. */
@@ -135,7 +138,7 @@ const parseYears = (query: string): [number, number] => {
 };
 
 const ROW_COLUMNS = `
-  t.id, t.title, t.album, t.release_year as year, t.spotify_id,
+  t.id, t.title, t.album, t.release_year as year, t.spotify_id, t.explicit,
   (select group_concat(name, ', ') from (
     select a.name from track_artists ta join artists a on a.id = ta.artist_id
     where ta.track_id = t.id order by ta.position)) as artists,
@@ -148,7 +151,8 @@ const ROW_COLUMNS = `
   exists (select 1 from track_sources s where s.track_id = t.id and s.source in ${LIBRARY_SOURCES}) as in_library`;
 
 interface RawRow
-  extends Omit<Row, 'sources' | 'tags' | 'spotify_url' | 'about'> {
+  extends Omit<Row, 'sources' | 'tags' | 'spotify_url' | 'about' | 'explicit'> {
+  explicit: number | null;
   sources: string | null;
   tags: string | null;
   about: string | null;
@@ -164,6 +168,7 @@ const toRow = ({
   ...rest
 }: RawRow): Row => ({
   ...rest,
+  explicit: rest.explicit === null ? null : rest.explicit === 1,
   artists: rest.artists ?? '',
   spotify_url: rest.spotify_id
     ? `https://open.spotify.com/track/${rest.spotify_id}`
@@ -192,6 +197,7 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
       't.id not in (select rowid from tracks_fts where tracks_fts match $exclude)',
     );
   }
+  if (options.clean) where.push('coalesce(t.explicit, 0) = 0');
 
   let from = 'tracks t';
   let extra = '';
@@ -298,6 +304,7 @@ export const formatRow = (row: Row) => {
   const meta = [
     row.year,
     row.plays > 0 ? `${row.plays} plays` : null,
+    row.explicit ? 'explicit' : null,
     row.sources.join('+') || 'scrobble',
   ]
     .filter(Boolean)

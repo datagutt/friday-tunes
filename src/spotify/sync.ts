@@ -40,6 +40,7 @@ export const toTrackInput = (
         albumSpotifyId: album?.id ?? null,
         releaseYear: releaseYear(album?.release_date),
         durationMs: track.duration_ms,
+        explicit: track.explicit ?? null,
         artists: track.artists.map((a) => ({ name: a.name, spotifyId: a.id })),
       };
 

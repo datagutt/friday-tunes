@@ -207,4 +207,10 @@ export const migrations: ReadonlyArray<string> = [
     tokenize = 'unicode61 remove_diacritics 2'
   );
   `,
+  `
+  -- Spotify's explicit flag, so a playlist for a work channel can leave
+  -- out explicit songs. Null means unknown: the track has no Spotify
+  -- version yet, or was stored before this column existed.
+  alter table tracks add column explicit integer;
+  `,
 ];
