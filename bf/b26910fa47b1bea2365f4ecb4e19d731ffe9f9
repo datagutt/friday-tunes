@@ -1,0 +1,23 @@
+src/cli.ts
+  s_ae51475b555647::t_cc051ea78a1dee 142-147,172
+src/search/theme.ts
+  s_ae51475b555647::t_56399901ce5802 62-69,73,79-84,87-88,92,96-143,169-171,193,251-254,257
+test/search.test.ts
+  s_ae51475b555647::t_5a353f4138fd9d 329-362
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bfb26910fa47b1bea2365f4ecb4e19d731ffe9f9",
+  "prompts": {},
+  "sessions": {
+    "s_ae51475b555647": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa672cfe-310c-4da7-99ce-1a60b028df49",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <mail@datagutt.no>"
+    }
+  }
+}
