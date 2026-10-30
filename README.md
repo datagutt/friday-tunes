@@ -58,8 +58,11 @@ ft search vibe "enchanted forest, fairytale"
 ft search artist-vibe "indie folk, acoustic, nordic folk"
 ft search year 1990-1999 --exclude-tag metal
 ft theme --vibe "magical, enchanting" --sound "dream pop, ethereal, folk" \
-  --word magic --word 'witch*' --tag "dream pop" --exclude-tag metal
+  --word magic --word 'witch*' --tag "dream pop" --exclude-tag metal --clean
+ft theme --vibe "halloween, spooky, haunted" --avoid christmas --word ghost
 ft playlist create --name "Magic" 506 912 786
+ft playlist add https://open.spotify.com/playlist/... 1602 10239
+ft playlist remove https://open.spotify.com/playlist/... 1602
 ft stats
 ```
 
@@ -78,7 +81,9 @@ A search runs a quick sync first when the index is more than 12 hours old. Pass 
 - **Spotify limits.** A development mode Spotify app gets a small, unpublished call budget. A few minutes at 5 calls per second earned a block of almost 23 hours, for every tool that uses the same client ID. friday-tunes therefore does most discovery through Last.fm and calls Spotify at 2 calls per second. It spends Spotify calls on discographies only in small hourly slices. When Spotify answers with a long `Retry-After`, the index stores the time and makes no Spotify calls until then.
 - **Other people's playlists.** Spotify returns no contents for playlists the user neither owns nor collaborates on. Those are stored as `not_owned`. Some owned playlists also break Spotify's paging, and the sync skips them with a warning.
 - **One row per song.** Album, single and remaster versions share one row, keyed on the normalized primary artist and title. Remixes, live and acoustic versions stay separate. See `src/normalize.ts`.
-- **Lazy Spotify IDs.** Tracks that come only from Last.fm have no Spotify ID. `ft playlist create` looks them up at creation time and caches the result, including misses.
+- **Lazy Spotify IDs.** Tracks that come only from Last.fm have no Spotify ID. The `ft playlist` commands look them up when they need them and cache the result, including misses. When a song is not on Spotify, they list other indexed versions of it.
+- **Explicit is often unknown.** The explicit flag comes from Spotify, so scrobble-only tracks have none until a playlist command looks them up. `--clean` keeps unknown tracks.
+- **Tags come from artists.** Last.fm has track tags for few songs. Nearly every track still carries its artists' tags, so tag searches find genres well and occasions like "halloween" poorly.
 - **Apple SQLite.** The system SQLite on macOS cannot load extensions, and sqlite-vec is one. friday-tunes loads Homebrew's SQLite instead. Set `SQLITE_LIB` if yours lives elsewhere.
 
 ## Development
