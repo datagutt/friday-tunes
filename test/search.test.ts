@@ -306,3 +306,9 @@ test('listening boost favors played and liked tracks', () => {
   // Plays tip close calls but never double a score.
   expect(boost(500, ['liked'])).toBeLessThan(2);
 });
+
+test('plain searches rank played songs above unplayed library songs', () => {
+  expect(titles({ mode: 'year', query: '1960-2010' })[0]).toBe(
+    'Under Your Spell',
+  );
+});

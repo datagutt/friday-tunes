@@ -195,7 +195,9 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
 
   let from = 'tracks t';
   let extra = '';
-  let order = 'in_library desc, plays desc';
+  // Plays come first: they show which songs the user actually knows, while
+  // the library also holds imported playlists the user never played.
+  let order = 'plays desc, in_library desc';
   const column = FTS_COLUMN[options.mode];
 
   if (options.mode === 'year') {
