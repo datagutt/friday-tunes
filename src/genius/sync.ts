@@ -5,7 +5,7 @@ import { Db } from '../db/db';
 import { ENRICH_TRACKS } from '../lastfm/sync';
 import { syncGeniusArtists } from './artists';
 import { findSong, geniusGet } from './client';
-import { saveSingers, singersOf } from './singers';
+import { creditsOf, saveCredits } from './credits';
 
 // Genius publishes no rate limit. After Spotify handed out a 22 hour block,
 // this runs as a slow trickle from the hourly launchd job: about 300 songs
@@ -30,6 +30,8 @@ const Song = Schema.Struct({
       ),
       primary_artists: GeniusArtists,
       featured_artists: GeniusArtists,
+      producer_artists: GeniusArtists,
+      writer_artists: GeniusArtists,
       custom_performances: Schema.optionalWith(
         Schema.Array(
           Schema.Struct({ label: Schema.String, artists: GeniusArtists }),
@@ -156,7 +158,7 @@ export const syncGenius = Effect.gen(function* () {
       aboutText(details),
       annotationText(referents),
     );
-    saveSingers(db, track.id, singersOf(details.response.song));
+    saveCredits(db, track.id, creditsOf(details.response.song));
     done++;
     hits++;
   }
@@ -167,7 +169,7 @@ export const syncGenius = Effect.gen(function* () {
   yield* syncGeniusArtists(token.value, budget);
 });
 
-// Songs fetched before singers were stored need their credits once more.
+// Songs fetched before credits were stored need their song details again.
 // Each takes one call, so this drains within a few hourly runs.
 const syncCredits = (token: Redacted.Redacted, budget: Budget) =>
   Effect.gen(function* () {
@@ -185,7 +187,7 @@ const syncCredits = (token: Redacted.Redacted, budget: Budget) =>
     for (const { track_id, genius_id } of pending) {
       if (!budget.canAfford(1)) break;
       // A song Genius removed since would otherwise stay first in line and
-      // fail every run. With no singers the Spotify artists stand in.
+      // fail every run. With no credits the Spotify artists stand in.
       const details = yield* budget
         .spend(
           geniusGet(
@@ -201,10 +203,12 @@ const syncCredits = (token: Redacted.Redacted, budget: Budget) =>
             () => Effect.succeed(null),
           ),
         );
-      saveSingers(
+      saveCredits(
         db,
         track_id,
-        details ? singersOf(details.response.song) : [],
+        details
+          ? creditsOf(details.response.song)
+          : { singers: [], others: [] },
       );
       done++;
     }

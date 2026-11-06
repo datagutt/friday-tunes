@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import { Effect, Layer } from 'effect';
 import { Db, DbMemory, openDatabase } from '../src/db/db';
 import { upsertTrack } from '../src/db/library';
-import { saveSingers, singersOf } from '../src/genius/singers';
+import { creditsOf, saveCredits } from '../src/genius/credits';
 import { search } from '../src/search/search';
 import { setManualVoice } from '../src/voices/manual';
 import { syncMusicBrainzVoices } from '../src/voices/musicbrainz';
@@ -25,33 +25,42 @@ const vocals = (db: Database, title: string) =>
     )
     .get(title)?.vocals;
 
-describe('singersOf', () => {
+describe('creditsOf', () => {
   const credits = {
     primary_artists: [{ id: 1, name: 'Massive Attack' }],
     featured_artists: [{ id: 2, name: 'Elizabeth Fraser' }],
+    producer_artists: [{ id: 4, name: 'Neil Davidge' }],
+    writer_artists: [{ id: 2, name: 'Elizabeth Fraser' }],
     custom_performances: [] as Array<{
       label: string;
       artists: Array<{ id: number; name: string }>;
     }>,
   };
+  const names = (artists: ReadonlyArray<{ name: string }>) =>
+    artists.map((a) => a.name);
 
   test('a vocals credit names exactly who sings', () => {
-    const singers = singersOf({
+    const { singers, others } = creditsOf({
       ...credits,
       custom_performances: [
         { label: 'Vocals', artists: [{ id: 2, name: 'Elizabeth Fraser' }] },
         { label: 'Background Vocals', artists: [{ id: 3, name: 'Choir' }] },
-        { label: 'Keyboards', artists: [{ id: 1, name: 'Massive Attack' }] },
+        { label: 'Label', artists: [{ id: 5, name: 'Virgin Records' }] },
       ],
     });
-    expect(singers.map((s) => s.name)).toEqual(['Elizabeth Fraser']);
+    expect(names(singers)).toEqual(['Elizabeth Fraser']);
+    expect(names(others)).toEqual([
+      'Massive Attack',
+      'Neil Davidge',
+      'Choir',
+      'Virgin Records',
+    ]);
   });
 
   test('without one, main and featured artists stand in', () => {
-    expect(singersOf(credits).map((s) => s.name)).toEqual([
-      'Massive Attack',
-      'Elizabeth Fraser',
-    ]);
+    const { singers, others } = creditsOf(credits);
+    expect(names(singers)).toEqual(['Massive Attack', 'Elizabeth Fraser']);
+    expect(names(others)).toEqual(['Neil Davidge']);
   });
 });
 
@@ -73,6 +82,11 @@ describe('rebuildVoices', () => {
       artists: [{ name: 'Massive Attack' }, { name: 'Elizabeth Fraser' }],
       releaseYear: 1998,
     });
+    const remix = upsertTrack(db, {
+      title: 'WITHOUT YOU',
+      artists: [{ name: 'The Kid LAROI' }, { name: 'Miley Cyrus' }],
+      releaseYear: 2021,
+    });
     const synne = artistId(db, 'Synne Sørgjerd');
     saveVoice(db, synne, 'wikidata', 'female');
     // Last.fm tags count only when no other source knows.
@@ -83,18 +97,36 @@ describe('rebuildVoices', () => {
     saveVoice(db, artistId(db, 'Mio'), 'wikidata', 'female');
     saveVoice(db, artistId(db, 'Massive Attack'), 'wikidata', 'male');
     saveVoice(db, artistId(db, 'Elizabeth Fraser'), 'wikidata', 'female');
+    saveVoice(db, artistId(db, 'The Kid LAROI'), 'wikidata', 'male');
+    saveVoice(db, artistId(db, 'Miley Cyrus'), 'wikidata', 'female');
     db.query(
-      "insert into genius (track_id, status, genius_id, fetched_at) values (?, 'hit', 1, 0), (?, 'hit', 2, 0)",
-    ).run(duet, produced);
+      "insert into genius (track_id, status, genius_id, fetched_at) values (?, 'hit', 1, 0), (?, 'hit', 2, 0), (?, 'hit', 3, 0)",
+    ).run(duet, produced, remix);
     // Genius writes "Bastian" where Spotify writes "Bastian!".
-    saveSingers(db, duet, [
-      { id: 10, name: 'Synne Sørgjerd' },
-      { id: 11, name: 'Bastian' },
-    ]);
-    saveSingers(db, produced, [{ id: 12, name: 'Elizabeth Fraser' }]);
+    saveCredits(db, duet, {
+      singers: [
+        { id: 10, name: 'Synne Sørgjerd' },
+        { id: 11, name: 'Bastian' },
+      ],
+      others: [],
+    });
+    saveCredits(db, produced, {
+      singers: [{ id: 12, name: 'Elizabeth Fraser' }],
+      others: [
+        { id: 13, name: 'Massive Attack' },
+        { id: 14, name: 'Virgin Records' },
+      ],
+    });
+    // Genius matched the solo original, which does not credit Miley Cyrus.
+    saveCredits(db, remix, {
+      singers: [{ id: 15, name: 'The Kid LAROI' }],
+      others: [],
+    });
     rebuildVoices(db);
 
     expect(vocals(db, 'Teardrop')).toBe('female');
+    expect(artistId(db, 'Virgin Records')).toBe(-1);
+    expect(vocals(db, 'WITHOUT YOU')).toBe('mixed');
     // Without Genius credits the Spotify artists count, producer included.
     expect(vocals(db, '04800')).toBe('mixed');
     // Bastian! has no voice yet, so the duet is only known as female.
@@ -116,6 +148,7 @@ describe('rebuildVoices', () => {
     expect(byVocals('mixed').sort()).toEqual([
       '04800: mixed',
       'Jeg har blitt en hoe: mixed',
+      'WITHOUT YOU: mixed',
     ]);
     expect(byVocals('female')).toEqual(['Teardrop: female']);
   });

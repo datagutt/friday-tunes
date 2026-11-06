@@ -241,4 +241,20 @@ export const migrations: ReadonlyArray<string> = [
   alter table artists add column voice text;
   alter table tracks add column vocals text;
   `,
+  `
+  -- Genius also names people who worked on a song without singing on it:
+  -- Massive Attack on Teardrop, producers Spotify credits as artists.
+  -- Keeping them lets every other Spotify artist count as a singer, so a
+  -- remix's featured singer still counts when Genius matched the original.
+  -- Credits fetched before this are fetched again.
+  create table track_credits (
+    track_id integer not null references tracks(id) on delete cascade,
+    artist_id integer not null references artists(id) on delete cascade,
+    sings integer not null,
+    primary key (track_id, artist_id)
+  ) without rowid;
+  create index track_credits_artist on track_credits(artist_id);
+  drop table track_singers;
+  update genius set credits_at = null;
+  `,
 ];

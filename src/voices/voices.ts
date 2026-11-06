@@ -89,7 +89,8 @@ const LASTFM_MALE =
   "lower(g.tag) in ('male vocalists', 'male vocalist', 'male vocals')";
 
 // Derives artists.voice from the best source, then tracks.vocals from the
-// singers. A track without Genius singers uses its Spotify artists. Runs
+// singers: Genius singers plus every Spotify artist Genius does not name
+// as credited without singing. Runs
 // after every sync and manual change; on the full index it takes well
 // under a second.
 export const rebuildVoices = (db: Database) =>
@@ -121,10 +122,12 @@ export const rebuildVoices = (db: Database) =>
             when max(a.voice in ('male', 'mixed')) = 1 then 'male' end
           from artists a
           where a.voice is not null and a.id in (
-            select s.artist_id from track_singers s where s.track_id = tracks.id
-            union all
+            select c.artist_id from track_credits c
+            where c.track_id = tracks.id and c.sings = 1
+            union
             select ta.artist_id from track_artists ta
-            where ta.track_id = tracks.id
-              and not exists (select 1 from track_singers s where s.track_id = tracks.id)))`);
+            where ta.track_id = tracks.id and not exists (
+              select 1 from track_credits c where c.track_id = tracks.id
+                and c.artist_id = ta.artist_id and c.sings = 0)))`);
     })
     .immediate();
