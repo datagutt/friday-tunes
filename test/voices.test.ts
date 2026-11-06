@@ -151,6 +151,17 @@ describe('rebuildVoices', () => {
       'WITHOUT YOU: mixed',
     ]);
     expect(byVocals('female')).toEqual(['Teardrop: female']);
+    const vocalsMode = (query: string) =>
+      search(db, {
+        mode: 'vocals',
+        query,
+        limit: 10,
+        source: 'any',
+        minPlays: 0,
+        substring: false,
+      }).map((r) => r.title);
+    expect(vocalsMode('female')).toEqual(['Teardrop']);
+    expect(() => vocalsMode('duet')).toThrow('Vocals query must be one of');
   });
 });
 

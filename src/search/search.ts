@@ -1,6 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import { normalizeTitle } from '../normalize';
-import type { Vocals } from '../voices/voices';
+import { VOCALS, type Vocals } from '../voices/voices';
 
 export const MODES = [
   'title',
@@ -11,6 +11,7 @@ export const MODES = [
   'meaning',
   'about',
   'year',
+  'vocals',
   'vibe',
   'artist-vibe',
   'about-vibe',
@@ -142,6 +143,13 @@ const parseYears = (query: string): [number, number] => {
   return [Number(match[1]), Number(match[2] ?? match[1])];
 };
 
+const parseVocals = (query: string): Vocals => {
+  const vocals = VOCALS.find((v) => v === query.trim().toLowerCase());
+  if (!vocals)
+    throw new Error(`Vocals query must be one of: ${VOCALS.join(', ')}`);
+  return vocals;
+};
+
 const ROW_COLUMNS = `
   t.id, t.title, t.album, t.release_year as year, t.spotify_id, t.explicit, t.vocals,
   (select group_concat(name, ', ') from (
@@ -219,6 +227,11 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
     const [from_year, to_year] = parseYears(options.query);
     where.push('t.release_year between $from_year and $to_year');
     Object.assign(params, { from_year, to_year });
+  } else if (options.mode === 'vocals') {
+    // Who performs is the whole theme here, so the list is every such
+    // song, most played first, for the agent to judge.
+    where.push('t.vocals = $mode_vocals');
+    params.mode_vocals = parseVocals(options.query);
   } else if (options.mode === 'title' && options.substring) {
     where.push("t.title_norm like $like escape '\\'");
     params.like = `%${normalizeTitle(options.query).replace(/[\\%_]/g, '\\$&')}%`;

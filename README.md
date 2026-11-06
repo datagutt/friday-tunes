@@ -61,6 +61,7 @@ ft search year 1990-1999 --exclude-tag metal
 ft theme --vibe "magical, enchanting" --sound "dream pop, ethereal, folk" \
   --word magic --word 'witch*' --tag "dream pop" --exclude-tag metal --clean
 ft theme --vibe "halloween, spooky, haunted" --avoid christmas --word ghost
+ft search vocals mixed --limit 200
 ft theme --vibe "love song, two people singing to each other" --vocals mixed
 ft voice "Bastian!"
 ft voice "Bastian!" male

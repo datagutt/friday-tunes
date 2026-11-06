@@ -35,6 +35,7 @@ Read the default text output: a short block per track. It starts with the index'
 - `ft search about <words>`: word match in the summaries and their themes. Summaries are in English, whatever the language of the song.
 - `ft search about-vibe <description>`: semantic search over the summaries. Describe the subject ("songs about war photographers", "protest songs against the Vietnam war").
 - `ft search year 1996` or `ft search year 1990-1999`: release year. Scrobble-only tracks often have no year.
+- `ft search vocals mixed` (or `female`, `male`): every song with those singers, most played first. For a theme about who performs, read the top 200 and judge them, then run `ft theme --vocals mixed` with a vibe for songs the user plays less.
 - `ft search vibe <description>`: semantic search over each track's title, artist, tags, lyrics and Genius notes. Describe the mood in a few words; Norwegian works too.
 - `ft search artist-vibe <sound>`: semantic search over artists, returning up to 4 of each matching artist's most played tracks. Describe genres, instruments and regions ("indie folk, acoustic, nordic folk"). Moods and seasons ("autumn", "cozy") match poorly, because tags rarely name them.
 - Filters for every mode:
@@ -61,7 +62,7 @@ A search runs a quick sync first when the index is more than 12 hours old. Its p
    - artist name word ("artists named after animals")
    - lyric subject ("songs about rain")
    - era or year ("songs from the year you were born")
-   - who performs ("duets with male and female vocals", "female fronted bands"): a fact about the singers, not about the song's text. Use `--vocals`, not title or lyric words
+   - who performs ("duets with male and female vocals", "female fronted bands"): a fact about the singers, not about the song's text. Use `ft search vocals` and `--vocals`, not title or lyric words
    - genre or mood that tags describe ("dreamy", "witch house", "christmas")
    - open vibe that needs judgment ("songs that evoke magic")
 2. Expand the theme before you search. Themes are often puns or references, so write out what they could point to: people, places, events, band names and wordplay. "(Nobel) Peace (Prize)" points to Oslo, Dylan, Mandela, Gorbachev, a band called War, songs about peace and war, and the Norwegian "fred". Each becomes a `--word`, an artist search or part of the `--vibe`.
