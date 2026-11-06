@@ -1,0 +1,45 @@
+README.md
+  s_a181142da317f3::t_e2a01e7155aad7 11,64-66,78,82,92
+src/cli.ts
+  s_a181142da317f3::t_461239e12ab05c 35-36,111-116,145-150,199-205,256-281,387
+src/db/db.ts
+  s_a181142da317f3::t_9d6ded6239c3d3 8,61-64
+src/genius/artists.ts
+  s_a181142da317f3::t_20625e03b53bc1 2
+src/schedule.ts
+  s_a181142da317f3::t_e7ea7f9f3e814a 32-35,44-45,53
+src/search/eval.ts
+  s_a181142da317f3::t_f9f12d34065b1d 4,30
+src/search/search.ts
+  s_a181142da317f3::t_af624dde625ad7 3,40-41,73-74,146,206-209,317
+src/search/stats.ts
+  s_a181142da317f3::t_996571b27ada19 54-56
+src/search/theme.ts
+  s_a181142da317f3::t_13967b5c45ffb0 5,75,196
+src/sync.ts
+  s_a181142da317f3::t_16e5ee5df92dbc 23-24,95-98,148
+src/voices/manual.ts
+  s_a181142da317f3::t_8573cc188cdf14 1-44
+src/voices/sync.ts
+  s_a181142da317f3::t_f991ab68706fd8 1-10
+src/voices/wikidata.ts
+  s_a181142da317f3::t_46fae932d8474c 1-209
+test/voices.test.ts
+  s_a181142da317f3::t_a472d2cd00a907 1-268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0bce19eef40ffd7fc1d784a631254dbee52b9ff9",
+  "prompts": {},
+  "sessions": {
+    "s_a181142da317f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6f8d501-4303-4393-980c-5e24581e3512",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Thomas Lekanger <mail@datagutt.no>"
+    }
+  }
+}
