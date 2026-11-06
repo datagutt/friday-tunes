@@ -32,6 +32,8 @@ import {
   type Missing,
 } from './spotify/playlist';
 import { isStale, runSync, STEPS } from './sync';
+import { setManualVoice, showVoice } from './voices/manual';
+import { VOCALS, VOICES, type Voice } from './voices/voices';
 
 const auth = Command.make('auth', {}, () =>
   authorize.pipe(Effect.zipRight(Console.log('Spotify authorized.'))),
@@ -106,6 +108,12 @@ const commonSearchOptions = {
       'Leave out songs Spotify marks explicit. Songs without a Spotify version are kept.',
     ),
   ),
+  vocals: Options.choice('vocals', VOCALS).pipe(
+    Options.optional,
+    Options.withDescription(
+      'Only songs sung by women and men together (mixed), or by women or men only. Songs with unknown singers are left out.',
+    ),
+  ),
   json: Options.boolean('json'),
   noSync: Options.boolean('no-sync').pipe(
     Options.withDescription('Skip the automatic quick sync of a stale index.'),
@@ -134,7 +142,12 @@ const searchCommand = Command.make(
       const vector = VIBE_MODES.has(options.mode)
         ? (yield* embed([query]))[0]
         : undefined;
-      const rows = search(db, { ...options, query, vector });
+      const rows = search(db, {
+        ...options,
+        query,
+        vector,
+        vocals: Option.getOrUndefined(options.vocals),
+      });
       yield* Console.log(
         options.json
           ? JSON.stringify(rows, null, 2)
@@ -183,7 +196,13 @@ const themeCommand = Command.make(
       const vibe = Option.getOrUndefined(options.vibe);
       const sound = Option.getOrUndefined(options.sound);
       const vectors = yield* themeVectors(vibe, sound, options.avoid);
-      const rows = themeSearch(db, { ...options, vibe, sound, ...vectors });
+      const rows = themeSearch(db, {
+        ...options,
+        vibe,
+        sound,
+        vocals: Option.getOrUndefined(options.vocals),
+        ...vectors,
+      });
       yield* Console.log(
         options.json
           ? JSON.stringify(rows, null, 2)
@@ -231,6 +250,32 @@ const evalCommand = Command.make(
 ).pipe(
   Command.withDescription(
     'Score ft theme against past themes: how many approved tracks rank in the top 20 and 50.',
+  ),
+);
+
+const voiceCommand = Command.make(
+  'voice',
+  {
+    artist: Args.text({ name: 'artist' }).pipe(
+      Args.withDescription('Artist name, quoted if it has spaces.'),
+    ),
+    voice: Args.choice(
+      [...VOICES, 'clear'].map((v) => [v, v] as [string, Voice | 'clear']),
+      { name: 'voice' },
+    ).pipe(Args.optional),
+  },
+  ({ artist, voice }) =>
+    Effect.gen(function* () {
+      const db = yield* Db;
+      const report = Option.match(voice, {
+        onNone: () => showVoice(db, artist),
+        onSome: (v) => setManualVoice(db, artist, v === 'clear' ? null : v),
+      });
+      yield* Console.log(report);
+    }),
+).pipe(
+  Command.withDescription(
+    "Show where an artist's voice comes from, or set it by hand: female, male, mixed (a band where both sing), nonbinary, or clear.",
   ),
 );
 
@@ -339,6 +384,7 @@ const root = Command.make('ft').pipe(
     themeCommand,
     evalCommand,
     statsCommand,
+    voiceCommand,
     playlist,
     schedule,
   ]),

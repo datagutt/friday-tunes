@@ -213,4 +213,32 @@ export const migrations: ReadonlyArray<string> = [
   -- version yet, or was stored before this column existed.
   alter table tracks add column explicit integer;
   `,
+  `
+  -- Who sings on a song, for themes like "duets with male and female
+  -- vocals". Spotify credits producers and DJs as artists, so the singers
+  -- come from Genius credits where Genius has the song; a track without
+  -- rows here falls back to its Spotify artists.
+  create table track_singers (
+    track_id integer not null references tracks(id) on delete cascade,
+    artist_id integer not null references artists(id) on delete cascade,
+    primary key (track_id, artist_id)
+  ) without rowid;
+  create index track_singers_artist on track_singers(artist_id);
+  alter table genius add column credits_at integer;
+  alter table artists add column genius_id integer;
+
+  -- Whether an artist sings as a woman, a man, or a band with both, per
+  -- source. A null voice is a miss, kept so the lookup is not repeated
+  -- every run. artists.voice and tracks.vocals are derived from this and
+  -- the singers by rebuildVoices, so searches filter on a plain column.
+  create table artist_voices (
+    artist_id integer not null references artists(id) on delete cascade,
+    source text not null,
+    voice text,
+    fetched_at integer not null,
+    primary key (artist_id, source)
+  ) without rowid;
+  alter table artists add column voice text;
+  alter table tracks add column vocals text;
+  `,
 ];

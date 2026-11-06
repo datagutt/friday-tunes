@@ -2,6 +2,7 @@ import type { Database } from 'bun:sqlite';
 import { Effect } from 'effect';
 import { embed } from '../embed/ollama';
 import { songKey } from '../normalize';
+import type { Vocals } from '../voices/voices';
 import {
   type Mode,
   type Row,
@@ -71,6 +72,7 @@ export interface ThemeOptions {
   readonly tags: ReadonlyArray<string>;
   readonly excludeTags?: ReadonlyArray<string>;
   readonly clean?: boolean;
+  readonly vocals?: Vocals;
   readonly source: SourceFilter;
   readonly minPlays: number;
   readonly limit: number;
@@ -191,6 +193,7 @@ export const themeSearch = (db: Database, options: ThemeOptions) => {
       substring: false,
       excludeTags: options.excludeTags,
       clean: options.clean,
+      vocals: options.vocals,
       ...vectors,
     };
     const signal = mode.endsWith('vibe') ? mode : `${mode}:${query}`;

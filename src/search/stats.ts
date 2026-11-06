@@ -51,6 +51,9 @@ export const stats = (db: Database) => {
     `embedded:    ${pct(one(db, 'select count(*) as n from vec_tracks'))}`,
     `artist bios: ${artistPct(one(db, "select count(*) as n from artist_bios where source = 'lastfm' and bio is not null"))} last.fm, ${artistPct(one(db, "select count(*) as n from artist_bios where source = 'genius' and bio is not null"))} genius`,
     `artists embedded: ${artistPct(one(db, 'select count(*) as n from vec_artists'))}`,
+    `artist voices: ${artistPct(one(db, 'select count(*) as n from artists where voice is not null'))}`,
+    `singers:     ${pct(one(db, 'select count(distinct track_id) as n from track_singers'))} from Genius credits, ${pct(one(db, "select count(*) as n from genius where status = 'hit' and credits_at is null"))} still to fetch`,
+    `vocals known: ${pct(one(db, 'select count(*) as n from tracks where vocals is not null'))}, ${one(db, "select count(*) as n from tracks where vocals = 'mixed'")} mixed`,
     `quick sync:  ${age(state('sync.quick.at'))}`,
     `full sync:   ${age(state('sync.full.at'))}`,
   ].join('\n');

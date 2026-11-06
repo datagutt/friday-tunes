@@ -1,8 +1,8 @@
 import { Effect, type Redacted, Schema } from 'effect';
+import type { Budget } from '../budget';
 import { pendingBios, saveBio } from '../db/bios';
 import { Db } from '../db/db';
 import { normalizeArtist } from '../normalize';
-import type { Budget } from './budget';
 import { geniusGet } from './client';
 
 const Search = Schema.Struct({

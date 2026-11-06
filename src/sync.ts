@@ -20,6 +20,8 @@ import {
   syncTop,
 } from './spotify/sync';
 import { syncSummaries } from './summary/sync';
+import { syncVoices } from './voices/sync';
+import { rebuildVoices } from './voices/voices';
 
 export interface SyncOptions {
   readonly full: boolean;
@@ -90,6 +92,10 @@ const STEP_DEFS = {
     quick: false,
     run: () => syncGenius,
   },
+  voices: {
+    quick: false,
+    run: () => syncVoices,
+  },
   summary: {
     quick: false,
     run: ({ summaryMinutes }) => syncSummaries(summaryMinutes),
@@ -139,6 +145,7 @@ export const runSync = (options: SyncOptions) =>
       }
     }
     rebuildFts(db);
+    rebuildVoices(db);
 
     if (failed.length > 0) return yield* new SyncFailed({ steps: failed });
     if (!explicit) {

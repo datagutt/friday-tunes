@@ -1,10 +1,11 @@
-import { Duration, Effect, Option, Schema } from 'effect';
+import { Duration, Effect, Option, type Redacted, Schema } from 'effect';
+import { type Budget, makeBudget } from '../budget';
 import { geniusToken } from '../config';
 import { Db } from '../db/db';
 import { ENRICH_TRACKS } from '../lastfm/sync';
 import { syncGeniusArtists } from './artists';
-import { makeBudget } from './budget';
 import { findSong, geniusGet } from './client';
+import { saveSingers, singersOf } from './singers';
 
 // Genius publishes no rate limit. After Spotify handed out a 22 hour block,
 // this runs as a slow trickle from the hourly launchd job: about 300 songs
@@ -16,15 +17,29 @@ const PACE = Duration.seconds(1);
 const MISS_RETRY_SECONDS = 180 * 24 * 3600;
 const MAX_ANNOTATIONS = 20;
 
+const GeniusArtists = Schema.optionalWith(
+  Schema.Array(Schema.Struct({ id: Schema.Number, name: Schema.String })),
+  { default: () => [] },
+);
+
 const Song = Schema.Struct({
   response: Schema.Struct({
     song: Schema.Struct({
       description: Schema.optional(
         Schema.NullOr(Schema.Struct({ plain: Schema.String })),
       ),
+      primary_artists: GeniusArtists,
+      featured_artists: GeniusArtists,
+      custom_performances: Schema.optionalWith(
+        Schema.Array(
+          Schema.Struct({ label: Schema.String, artists: GeniusArtists }),
+        ),
+        { default: () => [] },
+      ),
     }),
   }),
 });
+type Song = typeof Song.Type;
 
 const Referents = Schema.Struct({
   response: Schema.Struct({
@@ -50,7 +65,7 @@ const Referents = Schema.Struct({
 });
 
 // Genius shows "?" for a song without an About text.
-const aboutText = (song: typeof Song.Type) => {
+const aboutText = (song: Song) => {
   const plain = song.response.song.description?.plain.trim();
   return plain && plain !== '?' ? plain : null;
 };
@@ -141,11 +156,61 @@ export const syncGenius = Effect.gen(function* () {
       aboutText(details),
       annotationText(referents),
     );
+    saveSingers(db, track.id, singersOf(details.response.song));
     done++;
     hits++;
   }
   yield* Effect.logInfo(
     `genius: ${done} songs checked (${hits} on Genius) with ${budget.used} calls, ${pending.length - done} left`,
   );
+  yield* syncCredits(token.value, budget);
   yield* syncGeniusArtists(token.value, budget);
 });
+
+// Songs fetched before singers were stored need their credits once more.
+// Each takes one call, so this drains within a few hourly runs.
+const syncCredits = (token: Redacted.Redacted, budget: Budget) =>
+  Effect.gen(function* () {
+    const db = yield* Db;
+    const pending = db
+      .query<{ track_id: number; genius_id: number }, []>(
+        `select g.track_id, g.genius_id from genius g
+         where g.status = 'hit' and g.credits_at is null
+         order by exists (select 1 from track_sources s where s.track_id = g.track_id
+                          and s.source in ('liked', 'playlist', 'top')) desc,
+           (select count(*) from scrobbles sc where sc.track_id = g.track_id) desc`,
+      )
+      .all();
+    let done = 0;
+    for (const { track_id, genius_id } of pending) {
+      if (!budget.canAfford(1)) break;
+      // A song Genius removed since would otherwise stay first in line and
+      // fail every run. With no singers the Spotify artists stand in.
+      const details = yield* budget
+        .spend(
+          geniusGet(
+            Song,
+            `songs/${genius_id}`,
+            { text_format: 'plain' },
+            token,
+          ),
+        )
+        .pipe(
+          Effect.catchIf(
+            (e) => e._tag === 'HttpError' && e.status === 404,
+            () => Effect.succeed(null),
+          ),
+        );
+      saveSingers(
+        db,
+        track_id,
+        details ? singersOf(details.response.song) : [],
+      );
+      done++;
+    }
+    if (pending.length) {
+      yield* Effect.logInfo(
+        `genius: credits for ${done} earlier songs, ${pending.length - done} left`,
+      );
+    }
+  });

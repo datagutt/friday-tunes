@@ -5,6 +5,7 @@ import { Context, Effect, Layer } from 'effect';
 import * as sqliteVec from 'sqlite-vec';
 import { dbPath, sqliteLib } from '../config';
 import { rebuildFts } from '../search/fts';
+import { rebuildVoices } from '../voices/voices';
 import { migrations } from './migrations';
 
 export class Db extends Context.Tag('Db')<Db, Database>() {}
@@ -57,7 +58,10 @@ export const openDatabase = (file: string, lib: string) => {
   // open the database at the same moment, and both would otherwise run
   // the same migration.
   db.transaction(() => {
-    if (migrate(db) > 0) rebuildFts(db);
+    if (migrate(db) > 0) {
+      rebuildFts(db);
+      rebuildVoices(db);
+    }
   }).immediate();
   return db;
 };

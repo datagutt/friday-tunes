@@ -1,5 +1,6 @@
 import type { Database } from 'bun:sqlite';
 import { normalizeTitle } from '../normalize';
+import type { Vocals } from '../voices/voices';
 
 export const MODES = [
   'title',
@@ -36,6 +37,8 @@ export interface SearchOptions {
   readonly excludeTags?: ReadonlyArray<string>;
   /** Leave out tracks Spotify marks explicit. Unknown ones stay. */
   readonly clean?: boolean;
+  /** Only tracks whose singers add up to this. Unknown ones are left out. */
+  readonly vocals?: Vocals;
   /** Query embedding; required for the vibe modes. */
   readonly vector?: Float32Array;
   /**
@@ -67,6 +70,8 @@ export interface Row {
   readonly spotify_url: string | null;
   readonly plays: number;
   readonly explicit: boolean | null;
+  /** Whether women, men or both sing, where the voices step knows. */
+  readonly vocals: Vocals | null;
   readonly sources: ReadonlyArray<string>;
   readonly tags: ReadonlyArray<string>;
   /** What the song is about, from the summary step. */
@@ -138,7 +143,7 @@ const parseYears = (query: string): [number, number] => {
 };
 
 const ROW_COLUMNS = `
-  t.id, t.title, t.album, t.release_year as year, t.spotify_id, t.explicit,
+  t.id, t.title, t.album, t.release_year as year, t.spotify_id, t.explicit, t.vocals,
   (select group_concat(name, ', ') from (
     select a.name from track_artists ta join artists a on a.id = ta.artist_id
     where ta.track_id = t.id order by ta.position)) as artists,
@@ -198,6 +203,10 @@ export const search = (db: Database, options: SearchOptions): Row[] => {
     );
   }
   if (options.clean) where.push('coalesce(t.explicit, 0) = 0');
+  if (options.vocals) {
+    params.vocals = options.vocals;
+    where.push('t.vocals = $vocals');
+  }
 
   let from = 'tracks t';
   let extra = '';
@@ -305,6 +314,7 @@ export const formatRow = (row: Row) => {
     row.year,
     row.plays > 0 ? `${row.plays} plays` : null,
     row.explicit ? 'explicit' : null,
+    row.vocals ? `${row.vocals} vocals` : null,
     row.sources.join('+') || 'scrobble',
   ]
     .filter(Boolean)

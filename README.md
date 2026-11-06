@@ -8,6 +8,7 @@ The index lives in SQLite. It combines these sources:
 - Catalogs of followed and top artists: Last.fm top tracks, plus Spotify discographies that fill in slowly.
 - Lyrics from LRCLIB, with Genius as a fallback.
 - Genius notes: each song's About text and its top listener annotations.
+- Voices: who sings on each song, from Genius credits, and whether each artist sings as a woman, a man or a band with both, from Wikidata, MusicBrainz and Last.fm tags. Searches can then keep only duets of a woman and a man, or only women or men.
 - Artist bios from Last.fm and Genius. They are stored but not embedded: in tests they pulled unrelated artists into every artist search.
 - Song summaries from a local Ollama language model: two sentences on what each song is about, plus the playlist themes it would fit. Only songs with lyrics or Genius notes get one, so the model summarizes text instead of guessing from a title.
 - Embeddings from a local Ollama model, for vibe searches. Tracks are embedded from their title, tags, lyrics and Genius notes. Artists are embedded from their tags, because a theme like "autumn" is mostly about how an artist sounds.
@@ -60,6 +61,9 @@ ft search year 1990-1999 --exclude-tag metal
 ft theme --vibe "magical, enchanting" --sound "dream pop, ethereal, folk" \
   --word magic --word 'witch*' --tag "dream pop" --exclude-tag metal --clean
 ft theme --vibe "halloween, spooky, haunted" --avoid christmas --word ghost
+ft theme --vibe "love song, two people singing to each other" --vocals mixed
+ft voice "Bastian!"
+ft voice "Bastian!" male
 ft playlist create --name "Magic" 506 912 786
 ft playlist add https://open.spotify.com/playlist/... 1602 10239
 ft playlist remove https://open.spotify.com/playlist/... 1602
@@ -71,11 +75,11 @@ A search runs a quick sync first when the index is more than 12 hours old. Pass 
 ## Sync
 
 - `ft sync` runs the quick steps: `spotify` and `lastfm`.
-- `ft sync --full` also runs `catalog`, `discography`, `tags`, `bios`, `lyrics`, `genius`, `summary` and `embed`.
+- `ft sync --full` also runs `catalog`, `discography`, `tags`, `bios`, `lyrics`, `genius`, `voices`, `summary` and `embed`.
 - `ft sync --step <name>` runs one step. Repeat `--step` for several.
 - `--summary-minutes <n>` stops the `summary` step after n minutes. Without it, the step runs until it is done.
 
-`ft schedule install` adds two launchd jobs. A full sync runs on Fridays at 13:00. A trickle job runs the `discography`, `genius` and `summary` steps every hour; each run spends a small call budget, so they fill in over days without tripping rate limits. The `genius` step spends its budget on songs first and artist bios after. Both jobs pass `--summary-minutes 20`, so the `summary` step writes for 20 minutes per run, library songs first, and the Mac is not busy for hours. `ft sync --step summary` started by hand has no limit and runs until every song is summarized, which takes hours on the first pass. Logs go to `data/launchd.log`. If the Mac sleeps through a run, launchd starts it on wake. If the Mac is off, the run is skipped.
+`ft schedule install` adds two launchd jobs. A full sync runs on Fridays at 13:00. A trickle job runs the `discography`, `genius`, `voices` and `summary` steps every hour; each run spends a small call budget, so they fill in over days without tripping rate limits. The `genius` step spends its budget on new songs first, then on the singer credits of songs fetched earlier, then on artist bios. The `voices` step asks Wikidata about every artist with a Spotify or Genius ID in a few minutes, then asks MusicBrainz about the rest at one call per second. Both jobs pass `--summary-minutes 20`, so the `summary` step writes for 20 minutes per run, library songs first, and the Mac is not busy for hours. `ft sync --step summary` started by hand has no limit and runs until every song is summarized, which takes hours on the first pass. Logs go to `data/launchd.log`. If the Mac sleeps through a run, launchd starts it on wake. If the Mac is off, the run is skipped.
 
 ## Things that will surprise you
 
@@ -85,6 +89,7 @@ A search runs a quick sync first when the index is more than 12 hours old. Pass 
 - **Lazy Spotify IDs.** Tracks that come only from Last.fm have no Spotify ID. The `ft playlist` commands look them up when they need them and cache the result, including misses. When a song is not on Spotify, they list other indexed versions of it.
 - **Explicit is often unknown.** The explicit flag comes from Spotify, so scrobble-only tracks have none until a playlist command looks them up. `--clean` keeps unknown tracks.
 - **Tags come from artists.** Last.fm has track tags for few songs. Nearly every track still carries its artists' tags, so tag searches find genres well and occasions like "halloween" poorly.
+- **Voices are partly unknown.** Wikidata and MusicBrainz know most well known artists and miss many small Norwegian ones. `--vocals` leaves out songs whose singers are unknown, so check `ft stats` and set the artists you know with `ft voice "<artist>" female|male|mixed|nonbinary` (`clear` removes it). A band counts as mixed only when its singing members include a woman and a man. A song without Genius credits counts its Spotify artists as singers, so a producer credited as an artist still counts.
 - **Apple SQLite.** The system SQLite on macOS cannot load extensions, and sqlite-vec is one. friday-tunes loads Homebrew's SQLite instead. Set `SQLITE_LIB` if yours lives elsewhere.
 
 ## Development

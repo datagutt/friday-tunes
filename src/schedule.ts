@@ -29,9 +29,10 @@ const JOBS: ReadonlyArray<Job> = [
     summary: '`ft sync --full --summary-minutes 20` on Fridays at 13:00',
   },
   {
-    // Each run spends a small call budget on Spotify discographies and
-    // Genius notes, and a fixed time on song summaries; hourly runs fill
-    // all three in without tripping rate limits or hogging the Mac.
+    // Each run spends a small call budget on Spotify discographies, Genius
+    // notes and MusicBrainz voices, and a fixed time on song summaries;
+    // hourly runs fill them in without tripping rate limits or hogging
+    // the Mac.
     label: 'com.github.datagutt.friday-tunes.trickle',
     args: [
       'sync',
@@ -40,6 +41,8 @@ const JOBS: ReadonlyArray<Job> = [
       '--step',
       'genius',
       '--step',
+      'voices',
+      '--step',
       'summary',
       '--summary-minutes',
       '20',
@@ -47,7 +50,7 @@ const JOBS: ReadonlyArray<Job> = [
     timing: `<key>StartInterval</key>
   <integer>3600</integer>`,
     summary:
-      '`ft sync --step discography --step genius --step summary --summary-minutes 20` every hour',
+      '`ft sync --step discography --step genius --step voices --step summary --summary-minutes 20` every hour',
   },
 ];
 

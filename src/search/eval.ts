@@ -1,6 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { Effect, Schema } from 'effect';
 import { matchKey, normalizeArtist, normalizeTitle } from '../normalize';
+import { VOCALS } from '../voices/voices';
 import { SOURCE_FILTERS } from './search';
 import { type ThemeRow, themeSearch, themeVectors } from './theme';
 
@@ -26,6 +27,7 @@ export const EvalCase = Schema.Struct({
   words: strings,
   tags: strings,
   excludeTags: strings,
+  vocals: Schema.optional(Schema.Literal(...VOCALS)),
   source: Schema.optionalWith(Schema.Literal(...SOURCE_FILTERS), {
     default: () => 'any' as const,
   }),

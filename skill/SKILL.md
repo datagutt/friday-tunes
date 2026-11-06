@@ -9,6 +9,7 @@ description: Build a playlist for a music theme (the weekly Friday 15:00 theme a
 - Liked Songs, own playlists, and Spotify top and recent tracks.
 - Last.fm scrobbles since 2008.
 - The catalogs of followed and top artists: Last.fm top tracks, plus Spotify discographies that fill in over time.
+- Voices: who sings on each song (Genius credits) and whether each artist sings as a woman, a man or a band with both (Wikidata, MusicBrainz, Last.fm tags, manual entries).
 - Last.fm tags, lyrics, Genius notes (a song's About text and listener annotations) and track embeddings, where a sync has fetched them.
 - Summaries: a short account of what each song is about and the playlist themes it fits, written by a local model for songs with lyrics or Genius notes. A row shows it as `about`.
 - Artist embeddings built from each artist's Last.fm tags.
@@ -40,9 +41,11 @@ Read the default text output: a short block per track. It starts with the index'
   - `--source liked|library|scrobbled|catalog|any`: defaults to `any`, and that is right for themes. "library" means liked, own playlists and Spotify top tracks; it hides the Last.fm history, which is where most songs the user knows live. "catalog" means songs by followed and top artists that the user may not have heard. The ranking already prefers played and liked songs over catalog ones.
   - `--min-plays N`: at least N Last.fm scrobbles.
   - `--limit N`: default 50.
+  - `--vocals mixed|female|male`: only songs where a woman and a man both sing, or only women, or only men. Rows show `mixed vocals` and so on when the voices are known. Songs with unknown singers are left out, so a filtered search misses some fitting songs; see "When the index is wrong".
   - `--clean`: leave out songs Spotify marks explicit. Only when the user asks for it: Spotify's flag mostly marks swearing, which is fine at this workplace. Rows show `explicit` when Spotify says so.
   - `--exclude-tag <t>`: leave out tracks whose own or artist tags contain this phrase. Repeat for several. "metal" also drops "heavy metal" and "power metal". It is blunt: one stray tag drops an artist entirely (Guns N' Roses carries a metal tag), so use it only for genres that would clearly break the mood, and check what it removed.
 - A trailing `*` on a word is a prefix match. Quote it so the shell does not expand it: `ft search title 'witch*'`.
+- `ft voice "<artist>"` shows an artist's voice and where it came from. `ft voice "<artist>" female|male|mixed|nonbinary` sets it by hand, and `clear` removes the manual entry. Set it when the user tells you who sings, so the next search knows.
 - `ft stats`: shows what is indexed and how old the sync is. Run it first if results look thin.
 - `ft playlist create --name "<name>" --description "<text>" <id> <id> ...`: resolves Spotify IDs for scrobble-only tracks and creates a private playlist. It prints the link and any tracks that are not on Spotify.
 - `ft playlist add <link> <id> ...` and `ft playlist remove <link> <id> ...`: change an existing playlist. The link can be a URL, URI or bare ID. Use these when the user asks for more or fewer songs, instead of creating a new playlist.
@@ -58,6 +61,7 @@ A search runs a quick sync first when the index is more than 12 hours old. Its p
    - artist name word ("artists named after animals")
    - lyric subject ("songs about rain")
    - era or year ("songs from the year you were born")
+   - who performs ("duets with male and female vocals", "female fronted bands"): a fact about the singers, not about the song's text. Use `--vocals`, not title or lyric words
    - genre or mood that tags describe ("dreamy", "witch house", "christmas")
    - open vibe that needs judgment ("songs that evoke magic")
 2. Expand the theme before you search. Themes are often puns or references, so write out what they could point to: people, places, events, band names and wordplay. "(Nobel) Peace (Prize)" points to Oslo, Dylan, Mandela, Gorbachev, a band called War, songs about peace and war, and the Norwegian "fred". Each becomes a `--word`, an artist search or part of the `--vibe`.
@@ -94,5 +98,6 @@ A search runs a quick sync first when the index is more than 12 hours old. Its p
 ## When the index is wrong
 
 - If a song the user expects is missing, check `ft stats`. A song without a summary is invisible to `about-vibe`; the summary step writes about 230 per hourly run, and the run only happens while the Mac is awake. The song may be in a playlist that another user owns: Spotify blocks the contents of those for this app. Songs the user scrobbled on Last.fm are still indexed.
+- If a `--vocals` search misses songs, their singers' voices are unknown. Run the same search without `--vocals` and check the multi-artist rows yourself. Wikidata and MusicBrainz miss many small Norwegian artists. Ask the user about the ones you cannot place, and record each answer with `ft voice`.
 - If Spotify is not authorized, tell the user to run `ft auth`.
 - Do not edit the SQLite file directly.
