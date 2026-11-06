@@ -1,0 +1,14 @@
+skill/SKILL.md
+  h_10d2e54b37dca7 85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "78c6ef01b002f09175e4c0f60ef1cb9dc6937526",
+  "prompts": {},
+  "humans": {
+    "h_10d2e54b37dca7": {
+      "author": "Thomas Lekanger <mail@datagutt.no>"
+    }
+  }
+}
